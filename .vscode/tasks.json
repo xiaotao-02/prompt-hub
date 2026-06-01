@@ -1,0 +1,120 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "type": "npm",
+      "script": "dev",
+      "problemMatcher": [],
+      "label": "npm: dev",
+      "presentation": { "reveal": "always", "panel": "shared" }
+    },
+    {
+      "type": "npm",
+      "script": "dev:previews",
+      "problemMatcher": [],
+      "label": "dev: previews (all)",
+      "presentation": { "reveal": "always", "panel": "shared" }
+    },
+    {
+      "type": "npm",
+      "script": "build",
+      "problemMatcher": [],
+      "label": "npm: build",
+      "group": { "kind": "build", "isDefault": true },
+      "presentation": { "reveal": "always", "panel": "shared" }
+    },
+    {
+      "type": "npm",
+      "script": "build:watch",
+      "problemMatcher": [],
+      "label": "npm: build:watch",
+      "presentation": { "reveal": "always", "panel": "shared" }
+    },
+    {
+      "type": "npm",
+      "script": "preview",
+      "problemMatcher": [],
+      "label": "npm: preview",
+      "presentation": { "reveal": "always", "panel": "shared" }
+    },
+    {
+      "type": "npm",
+      "script": "icons",
+      "problemMatcher": [],
+      "label": "npm: icons",
+      "presentation": { "reveal": "always", "panel": "shared" }
+    },
+    {
+      "type": "npm",
+      "script": "icons:from-image",
+      "problemMatcher": [],
+      "label": "npm: icons:from-image",
+      "presentation": { "reveal": "always", "panel": "shared" }
+    },
+    {
+      "type": "npm",
+      "script": "zip",
+      "problemMatcher": [],
+      "label": "npm: zip",
+      "presentation": { "reveal": "always", "panel": "shared" }
+    },
+    {
+      "type": "npm",
+      "script": "package",
+      "problemMatcher": [],
+      "label": "npm: package",
+      "presentation": { "reveal": "always", "panel": "shared" }
+    },
+    {
+      "type": "npm",
+      "script": "release:store",
+      "problemMatcher": [],
+      "label": "npm: release:store",
+      "presentation": { "reveal": "always", "panel": "shared" }
+    },
+    {
+      "type": "npm",
+      "script": "store:assets",
+      "problemMatcher": [],
+      "label": "npm: store:assets",
+      "presentation": { "reveal": "always", "panel": "shared" }
+    },
+    {
+      "type": "npm",
+      "script": "store:screenshots",
+      "problemMatcher": [],
+      "label": "npm: store:screenshots",
+      "presentation": { "reveal": "always", "panel": "shared" }
+    },
+    {
+      "type": "npm",
+      "script": "install:chrome",
+      "problemMatcher": [],
+      "label": "npm: install:chrome",
+      "presentation": { "reveal": "always", "panel": "shared" }
+    },
+    {
+      "type": "npm",
+      "script": "install:edge",
+      "problemMatcher": [],
+      "label": "npm: install:edge",
+      "presentation": { "reveal": "always", "panel": "shared" }
+    },
+    {
+      "type": "npm",
+      "script": "lint",
+      "problemMatcher": ["$tsc"],
+      "label": "npm: lint",
+      "group": { "kind": "test", "isDefault": false },
+      "presentation": { "reveal": "always", "panel": "shared" }
+    },
+    {
+      "type": "npm",
+      "script": "test",
+      "problemMatcher": [],
+      "label": "npm: test",
+      "group": { "kind": "test", "isDefault": true },
+      "presentation": { "reveal": "always", "panel": "shared" }
+    }
+  ]
+}

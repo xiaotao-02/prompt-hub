@@ -1,0 +1,186 @@
+import type { UpdateCheckResult, UpdateInfo, UpdateSettings } from './types';
+import { isNewerVersion } from './version';
+
+// 闭源商业版：正式更新走 Chrome Web Store，不再默认指向 GitHub Releases。
+export const DEFAULT_FEED_URL = '';
+
+export const DEFAULT_UPDATE_SETTINGS: UpdateSettings = {
+  lastCheckedAt: 0,
+  lastResult: null,
+};
+
+export function getCurrentVersion(): string {
+  try {
+    return chrome.runtime.getManifest().version || '0.0.0';
+  } catch {
+    return '0.0.0';
+  }
+}
+
+/**
+ * 把用户输入的更新源规范化为可直接 fetch 的 URL。
+ * - "owner/repo"                                → GitHub Releases Latest API
+ * - "https://github.com/owner/repo[/...]"       → GitHub Releases Latest API
+ * - 完整 https URL                              → 原样使用
+ * - 其他/空值                                    → 返回 null
+ */
+export function normalizeFeedUrl(input: string): string | null {
+  const s = (input || '').trim();
+  if (!s) return null;
+  const githubWeb =
+    /^https?:\/\/(?:www\.)?github\.com\/([\w.-]+)\/([\w.-]+?)(?:\.git)?(?:\/.*)?$/i.exec(s);
+  if (githubWeb) {
+    return `https://api.github.com/repos/${githubWeb[1]}/${githubWeb[2]}/releases/latest`;
+  }
+  if (/^https?:\/\//i.test(s)) return s;
+  if (/^[\w.-]+\/[\w.-]+$/.test(s)) {
+    return `https://api.github.com/repos/${s}/releases/latest`;
+  }
+  return null;
+}
+
+interface GithubAsset {
+  name?: string;
+  browser_download_url?: string;
+  size?: number;
+}
+
+interface GithubRelease {
+  tag_name?: string;
+  name?: string;
+  body?: string;
+  html_url?: string;
+  assets?: GithubAsset[];
+  published_at?: string;
+  created_at?: string;
+  prerelease?: boolean;
+  draft?: boolean;
+}
+
+interface CustomFeed {
+  version?: string;
+  name?: string;
+  downloadUrl?: string;
+  url?: string;
+  releaseUrl?: string;
+  releaseNotes?: string;
+  notes?: string;
+  publishedAt?: string;
+}
+
+function parseGithubRelease(data: GithubRelease): UpdateInfo | null {
+  if (data.draft) return null;
+  const tag = String(data.tag_name || '').trim();
+  if (!tag) return null;
+  const version = tag.replace(/^v/i, '');
+  const assets = Array.isArray(data.assets) ? data.assets : [];
+  const zipAsset =
+    assets.find((a) => /\.zip$/i.test(a?.name || '')) ||
+    assets.find((a) => /\.crx$/i.test(a?.name || '')) ||
+    assets[0];
+  return {
+    version,
+    name: data.name || tag,
+    downloadUrl: zipAsset?.browser_download_url || data.html_url || '',
+    releaseUrl: data.html_url || '',
+    releaseNotes: data.body || '',
+    publishedAt: data.published_at || data.created_at || '',
+  };
+}
+
+function parseCustomFeed(data: CustomFeed): UpdateInfo | null {
+  if (!data.version) return null;
+  return {
+    version: String(data.version).replace(/^v/i, ''),
+    name: data.name || data.version,
+    downloadUrl: data.downloadUrl || data.url || '',
+    releaseUrl: data.releaseUrl || data.url || '',
+    releaseNotes: data.releaseNotes || data.notes || '',
+    publishedAt: data.publishedAt || '',
+  };
+}
+
+function truncate(s: string, max = 200): string {
+  if (s.length <= max) return s;
+  return `${s.slice(0, max)}…(共 ${s.length} 字符)`;
+}
+
+function looksLikeHtml(s: string): boolean {
+  const head = s.trimStart().slice(0, 64).toLowerCase();
+  return head.startsWith('<!doctype') || head.startsWith('<html') || head.startsWith('<?xml');
+}
+
+export async function fetchLatestRelease(feedUrl: string): Promise<UpdateInfo | null> {
+  const url = normalizeFeedUrl(feedUrl);
+  if (!url) return null;
+  const isGithubReleasesLatest =
+    /^https:\/\/api\.github\.com\/repos\/[\w.-]+\/[\w.-]+\/releases\/latest$/i.test(url);
+  const resp = await fetch(url, {
+    method: 'GET',
+    headers: { Accept: 'application/json' },
+    cache: 'no-store',
+  });
+  if (!resp.ok) {
+    if (resp.status === 404 && isGithubReleasesLatest) {
+      throw new Error(
+        '更新源仓库尚未发布任何 Release（GitHub 返回 404）。请先在该仓库的 Releases 页面发布一个版本，或换用其它更新源。',
+      );
+    }
+    if (resp.status === 403) {
+      throw new Error(`HTTP 403：可能触发了 GitHub 匿名 API 限流（每小时 60 次），请稍后再试。`);
+    }
+    throw new Error(`HTTP ${resp.status} ${resp.statusText}`);
+  }
+  const text = await resp.text();
+  let data: GithubRelease & CustomFeed;
+  try {
+    data = JSON.parse(text) as GithubRelease & CustomFeed;
+  } catch {
+    if (looksLikeHtml(text)) {
+      throw new Error(
+        `更新源返回的是 HTML 页面而不是 JSON，请检查更新源 URL 是否填写正确（应为 release API 或自定义 JSON 接口，而不是网页地址）。预览: ${truncate(text)}`,
+      );
+    }
+    throw new Error(`更新源返回内容无法解析为 JSON：${truncate(text)}`);
+  }
+  if (data && typeof data === 'object' && 'tag_name' in data && data.tag_name) {
+    return parseGithubRelease(data);
+  }
+  return parseCustomFeed(data);
+}
+
+export async function performUpdateCheck(feedUrl: string): Promise<UpdateCheckResult> {
+  const current = getCurrentVersion();
+  const checkedAt = Date.now();
+  if (!normalizeFeedUrl(feedUrl)) {
+    return {
+      hasUpdate: false,
+      current,
+      latest: null,
+      checkedAt,
+      error: '尚未配置更新源',
+    };
+  }
+  try {
+    const latest = await fetchLatestRelease(feedUrl);
+    if (!latest) {
+      return { hasUpdate: false, current, latest: null, checkedAt, error: '更新源数据无效' };
+    }
+    return {
+      hasUpdate: isNewerVersion(latest.version, current),
+      current,
+      latest,
+      checkedAt,
+    };
+  } catch (e) {
+    return {
+      hasUpdate: false,
+      current,
+      latest: null,
+      checkedAt,
+      error: e instanceof Error ? e.message : String(e),
+    };
+  }
+}
+
+export { isNewerVersion };

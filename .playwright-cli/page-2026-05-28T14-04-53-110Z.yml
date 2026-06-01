@@ -1,0 +1,52 @@
+- generic [active] [ref=e1]:
+    - heading "Prompt Hub · 开发 UI 实时预览" [level=1] [ref=e2]
+    - paragraph [ref=e3]:
+        - text: 根目录
+        - code [ref=e4]: npm run dev
+        - text: （
+        - code [ref=e5]: http://localhost:5173
+        - text: ）→ 真实 React +
+        - code [ref=e6]: STYLE
+        - text: /
+        - code [ref=e7]: panelHtml
+        - text: + HMR；预览为内存
+        - code [ref=e8]: chrome.storage
+        - text: 与占位
+        - code [ref=e9]: runtime.sendMessage
+        - text: ，与
+        - code [ref=e10]: chrome-extension://
+        - text: 不完全一致。 顶栏或
+        - code [ref=e11]: '#popup'
+        - text: /
+        - code [ref=e12]: '#options'
+        - text: /
+        - code [ref=e13]: '#panel'
+        - text: /
+        - code [ref=e14]: '#contextmenu'
+        - text: ，快捷键 1/2/3/4（本页焦点）。各标签下有
+        - strong [ref=e15]: 场景
+        - text: 下拉框：独立
+        - code [ref=e16]: '?scene='
+        - text: （空库用独立 IndexedDB，与有数据预览互不影响）。同源种子见
+        - code [ref=e17]: src/dev/preview/seedPreviewLibrary.ts
+        - text: （
+        - code [ref=e18]: preview-demo-*
+        - text: ）。Panel 成功态默认
+        - code [ref=e19]: '#focus=preview-demo-10v'
+        - text: ；另开单页可加
+        - code [ref=e20]: '#focus=preview-demo-1'
+        - text: 。场景选项见
+        - code [ref=e21]: src/dev/preview/previewScene.ts
+        - text: 。
+    - tablist "预览界面切换" [ref=e22]:
+        - tab "工具栏弹窗 · Popup" [ref=e23] [cursor=pointer]
+        - tab "选项页 · Options" [selected] [ref=e24] [cursor=pointer]
+        - tab "浮动面板 · Content panel" [ref=e25] [cursor=pointer]
+        - tab "右键菜单演示（仅本页模拟）" [ref=e26] [cursor=pointer]
+    - tabpanel "选项页 · Options" [ref=e28]:
+        - generic [ref=e30]:
+            - text: 场景
+            - combobox "预览场景 · options" [ref=e31]:
+                - option "有数据（种子库）" [selected]
+                - option "空提示词库"
+        - iframe [ref=e32]:

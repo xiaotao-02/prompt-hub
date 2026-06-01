@@ -1,0 +1,121 @@
+{
+  "count": 2,
+  "matches": [
+    {
+      "nodeKey": "0b437052-bdd0-4dcf-aa77-1259009d4b07",
+      "data": {
+        "type": "image",
+        "name": "promo-small",
+        "url": [
+          "https://libtv-res.liblib.art/sd-gen-save-img/genius_playground/image/d13a9c61c0e84803a068ceba1a783183/740465816_85d40e886999490385df3cd93ed7b9c7.png"
+        ],
+        "alt": "鍥剧墖",
+        "action": "image_generate",
+        "generatorType": "default",
+        "params": {
+          "prompt": "Chrome Web Store small promo tile, 440x280 aspect. Black honeycomb brand for browser extension \"Prompt Hub\". Layout: left 鈥?rounded square app icon with white glowing honeycomb hexagon cluster on black; right 鈥?large bold white English title \"Prompt Hub\", Chinese subtitle lines \"鍙抽敭 / 妗嗛€夊姞鍏ュ弬鑰冮潰鏉縗" and \"澶氬浘鍚堟垚 路 鍙嶆帹 AI 缁樼敾鎻愮ず璇峔", two pill badges \"GPT-4o 路 Claude 路 Gemini\" and \"GLM 路 Qwen 路 DeepSeek\" with cyan accent on second pill. Pure black background with subtle cyan and amber glow. Modern SaaS marketing, high contrast, crisp large typography, no purple gradient, no stock photos.",
+          "model": "lib-image-2",
+          "count": 1,
+          "settings": {
+            "quality": "high",
+            "resolution": "2K",
+            "ratio": "3:2"
+          },
+          "advancedSettings": {},
+          "cameraControl": {
+            "enabled": false,
+            "camera": "arri_alexa_35",
+            "lens": "hawk_class_x",
+            "focal": "35mm",
+            "aperture": "f/1.4"
+          },
+          "imageListOrder": [
+            "569789ed-d1aa-49e6-ac4c-0001fe34d718"
+          ],
+          "textList": [],
+          "imageList": [
+            {
+              "nodeId": "569789ed-d1aa-49e6-ac4c-0001fe34d718",
+              "url": "https://libtv-res.liblib.art/upload-images/d13a9c61c0e84803a068ceba1a783183/8c3a243a451bdeef45cadac784ae3eb51c98f798.png"
+            }
+          ],
+          "videoList": [],
+          "audioList": [],
+          "modeType": "image2image"
+        },
+        "taskInfo": {
+          "taskId": "20260528232403221968878",
+          "loading": false,
+          "status": 2,
+          "progressPercent": 100
+        },
+        "_updatedAtMs": 1779982217000,
+        "_lastAppliedFullyAtMs": 1779982217000,
+        "contentWidth": 525,
+        "contentHeight": 350,
+        "isStale": false,
+        "resourceMeta": {
+          "items": [
+            {
+              "kind": "image",
+              "width": 2016,
+              "height": 1344
+            }
+          ]
+        }
+      },
+      "nodeType": "image",
+      "name": "promo-small"
+    },
+    {
+      "nodeKey": "d66dbe77-64a3-46d9-8988-8ad5121dbe62",
+      "data": {
+        "type": "image",
+        "name": "promo-small",
+        "url": [
+          "https://libtv-res.liblib.art/sd-gen-save-img/genius_playground/image/d13a9c61c0e84803a068ceba1a783183/740470430_787a7a7c9e1549d89c8119d2a2d37cdd.png"
+        ],
+        "alt": "鍥剧墖",
+        "action": "image_generate",
+        "generatorType": "default",
+        "params": {
+          "prompt": "Chrome Web Store small promo tile, 440x280 aspect. Black honeycomb brand for browser extension \"Prompt Hub\". Layout: left 鈥?rounded square app icon with white glowing honeycomb hexagon cluster on black; right 鈥?large bold white English title \"Prompt Hub\", Chinese subtitle lines \"鍙抽敭 / 妗嗛€夊姞鍏ュ弬鑰冮潰鏉縗" and \"澶氬浘鍚堟垚 路 鍙嶆帹 AI 缁樼敾鎻愮ず璇峔", two pill badges \"GPT-4o 路 Claude 路 Gemini\" and \"GLM 路 Qwen 路 DeepSeek\" with cyan accent on second pill. Pure black background with subtle cyan and amber glow. Modern SaaS marketing, high contrast, crisp large typography, no purple gradient, no stock photos.",
+          "model": "lib-image-2",
+          "count": 1,
+          "modeType": "image2image",
+          "settings": {
+            "quality": "high",
+            "resolution": "2K",
+            "ratio": "3:2"
+          },
+          "textList": [],
+          "imageList": [
+            {
+              "nodeId": "e45d264c-760a-4390-b36b-e6983f7a1778",
+              "url": "https://libtv-res.liblib.art/upload-images/d13a9c61c0e84803a068ceba1a783183/8c3a243a451bdeef45cadac784ae3eb51c98f798.png"
+            }
+          ],
+          "videoList": [],
+          "audioList": []
+        },
+        "taskInfo": {
+          "taskId": "20260528232903995888878",
+          "loading": false,
+          "status": 2,
+          "progressPercent": 100
+        },
+        "resourceMeta": {
+          "items": [
+            {
+              "kind": "image",
+              "width": 2016,
+              "height": 1344
+            }
+          ]
+        }
+      },
+      "nodeType": "image",
+      "name": "promo-small"
+    }
+  ]
+}

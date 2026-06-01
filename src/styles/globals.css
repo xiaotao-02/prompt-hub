@@ -1,0 +1,150 @@
+@import 'tailwindcss';
+
+@theme {
+  /* 与 src/lib/uiFontStack.ts UI_FONT_STACK_SANS 保持同步 */
+  --font-sans:
+    -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei',
+    'Hiragino Sans GB', system-ui, 'Noto Sans CJK SC', sans-serif;
+  /* 与 content panel 一致：扩展页 font-mono 也走同一无衬线栈（避免提示词等看起来像等宽） */
+  --font-mono: var(--font-sans);
+}
+
+@layer base {
+  /* 语义色与动效须与 src/lib/uiTokens.ts 中 UI_THEME_LIGHT / UI_MOTION 保持一致 */
+  :root {
+    --ui-bg: #f8fafc;
+    --ui-bg-elevated: #ffffff;
+    --ui-bg-muted: #f4f4f5;
+    --ui-text: #18181b;
+    --ui-text-muted: #52525b;
+    --ui-text-subtle: #71717a;
+    --ui-border: #e4e4e7;
+    --ui-border-strong: #d4d4d8;
+    --ui-accent: #6d28d9;
+    --ui-accent-hover: #7c3aed;
+    --ui-accent-soft: #f5f3ff;
+    --ui-success-soft: #ecfdf5;
+    --ui-danger-soft: #fff1f2;
+    --ui-warning-soft: #fffbeb;
+    --ui-radius: 8px;
+    --ui-shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.05);
+    --ui-shadow-md: 0 10px 30px -18px rgba(15, 23, 42, 0.35);
+    --ui-collapse-duration: 220ms;
+    --ui-collapse-ease: cubic-bezier(0.2, 0.9, 0.3, 1.2);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --ui-bg: #09090b;
+      --ui-bg-elevated: #18181b;
+      --ui-bg-muted: #27272a;
+      --ui-text: #f4f4f5;
+      --ui-text-muted: #d4d4d8;
+      --ui-text-subtle: #a1a1aa;
+      --ui-border: #27272a;
+      --ui-border-strong: #3f3f46;
+      --ui-accent: #a78bfa;
+      --ui-accent-hover: #c4b5fd;
+      --ui-accent-soft: rgba(139, 92, 246, 0.16);
+      --ui-success-soft: rgba(16, 185, 129, 0.14);
+      --ui-danger-soft: rgba(244, 63, 94, 0.14);
+      --ui-warning-soft: rgba(245, 158, 11, 0.16);
+      --ui-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.18);
+      --ui-shadow-md: 0 12px 34px -18px rgba(0, 0, 0, 0.65);
+    }
+  }
+  html,
+  body {
+    background: var(--ui-bg);
+    color: var(--ui-text);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+  /* 永远预留纵向滚动条空间，避免切换 tab / 内容高度变化时
+     滚动条出现-消失导致 sticky header 整体水平抖动。 */
+  html {
+    scrollbar-gutter: stable;
+  }
+  @media (prefers-color-scheme: dark) {
+    html,
+    body {
+      background: var(--ui-bg);
+      color: var(--ui-text);
+    }
+  }
+  * {
+    box-sizing: border-box;
+  }
+}
+
+/* 简易组件样式 */
+@layer components {
+  /* 与 src/content/panel/styles.ts .prompt-text 尺寸/字重/字距一致（浮动面板主编辑区） */
+  .input-prompt {
+    @apply w-full font-sans font-normal text-[13px] leading-[1.6]
+           border border-zinc-200 dark:border-zinc-700
+           bg-white dark:bg-zinc-900
+           focus:outline-none focus:ring-2 focus:ring-violet-500/40 focus:border-violet-500
+           transition;
+    padding: 12px 14px;
+    border-radius: var(--ui-radius);
+    font-feature-settings: 'kern' 1;
+  }
+  .input {
+    @apply w-full px-3 py-2 border border-zinc-200 dark:border-zinc-700
+           bg-white dark:bg-zinc-900 text-sm
+           focus:outline-none focus:ring-2 focus:ring-violet-500/40 focus:border-violet-500
+           transition;
+    border-radius: var(--ui-radius);
+  }
+  .label {
+    @apply text-xs font-medium text-zinc-500 dark:text-zinc-400 mb-1.5 block;
+  }
+  .card {
+    @apply border border-zinc-200 dark:border-zinc-800
+           bg-white dark:bg-zinc-900 p-5;
+    border-radius: var(--ui-radius);
+    box-shadow: var(--ui-shadow-sm);
+  }
+  .btn-primary {
+    @apply inline-flex items-center gap-2 px-4 py-2
+           bg-violet-600 hover:bg-violet-500 text-white text-sm font-medium
+           shadow-sm active:scale-[0.98] transition disabled:opacity-50;
+    border-radius: var(--ui-radius);
+  }
+  .btn-ghost {
+    @apply inline-flex items-center gap-2 px-3 py-2
+           border border-zinc-200 dark:border-zinc-700
+           text-sm hover:bg-zinc-50 dark:hover:bg-zinc-800 transition;
+    border-radius: var(--ui-radius);
+  }
+  .ui-chip {
+    @apply inline-flex items-center gap-1.5 px-2 py-0.5 text-[11px] font-medium
+           border border-zinc-200 bg-zinc-50 text-zinc-600
+           dark:border-zinc-700 dark:bg-zinc-800/70 dark:text-zinc-300;
+    border-radius: 6px;
+  }
+  .ui-toolbar {
+    @apply border border-zinc-200/90 bg-white/95 dark:border-zinc-800 dark:bg-zinc-900/75;
+    border-radius: var(--ui-radius);
+    box-shadow: var(--ui-shadow-sm);
+  }
+  .ui-focus {
+    @apply focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500/45
+           focus-visible:ring-offset-2 focus-visible:ring-offset-white
+           dark:focus-visible:ring-offset-zinc-950;
+  }
+  .ui-chevron-spring {
+    transition: transform var(--ui-collapse-duration) var(--ui-collapse-ease);
+  }
+  .ui-collapse {
+    transition: grid-template-rows var(--ui-collapse-duration) var(--ui-collapse-ease);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ui-chevron-spring,
+  .ui-collapse {
+    transition: none !important;
+  }
+}

@@ -1,0 +1,35 @@
+node_modules
+dist
+dist-zip
+website/dist/
+website/.astro/
+website/node_modules/
+.DS_Store
+*.log
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+.idea
+.env
+.env.local
+services/api/data/
+# 平台运行时数据（显式规则，防误提交）
+*.db
+*.db-shm
+*.db-wal
+services/api/upstreams.json
+
+.chrome-dev-profile
+*.tsbuildinfo
+prompt-hub-data.json
+*-data.json
+
+# 商店素材：LibTV 中间产物与本地项目绑定不入仓；成品图与配置入仓
+store-assets/libtv/raw/
+store-assets/libtv/.libtv/
+store-assets/libtv/*.log
+
+# 本地工作目录，不入仓库
+hc-1/
+.export-byok-test/
+

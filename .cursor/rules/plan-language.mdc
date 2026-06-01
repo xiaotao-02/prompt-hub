@@ -1,0 +1,18 @@
+---
+description: 要求 AI 创建的所有 Plan 使用中文
+alwaysApply: true
+---
+
+# Plan 语言约定
+
+调用 CreatePlan 工具时，**所有文字内容必须使用中文**，包括：
+
+- plan 标题（name / overview）
+- 计划正文（各章节标题、描述、步骤说明）
+- todos 的 content 字段
+
+下列内容**保持原样，不翻译**：
+
+- 代码块、Shell 命令
+- 文件路径、函数名、变量名
+- 技术术语缩写（如 PR、CI、MV3、IDB）

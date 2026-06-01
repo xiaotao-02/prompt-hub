@@ -1,0 +1,32 @@
+{
+  "$schema": "https://unpkg.com/knip@5/schema.json",
+  "workspaces": {
+    ".": {
+      "entry": [
+        "src/background/index.ts",
+        "src/content/index.ts",
+        "src/popup/main.tsx",
+        "src/options/main.tsx",
+        "src/dev/preview/panel-entry.tsx",
+        "src/dev/preview/popup-entry.tsx",
+        "src/dev/preview/options-entry.tsx",
+        "src/dev/preview/context-menu-preview-entry.tsx",
+        "src/**/*.test.ts",
+        "scripts/**/*.ts",
+        "!scripts/byok/overlays/**"
+      ],
+      "project": [
+        "src/**/*.{ts,tsx}",
+        "scripts/**/*.ts",
+        "!scripts/byok/overlays/**",
+        "*.{ts,mjs}"
+      ],
+      "ignoreBinaries": ["powershell"],
+      "ignoreDependencies": ["tailwindcss"]
+    },
+    "services/api": {
+      "entry": ["src/**/*.test.ts"],
+      "project": ["src/**/*.ts"]
+    }
+  }
+}

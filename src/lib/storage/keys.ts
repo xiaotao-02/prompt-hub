@@ -1,0 +1,18 @@
+/** Storage 键名单独成文件，content 脚本可仅依赖本文件而不拉取 `settings.ts` → `strategies` 重包。 */
+
+export const SETTINGS_KEY = 'app_settings_v1';
+
+/**
+ * 「从端点拉取的模型列表」缓存所在的 local storage 键（与 SETTINGS_KEY 分离见 settings.ts 注释）。
+ */
+export const DISCOVERED_KEY = 'discovered_models_v1';
+
+/** 用户命名的自定义策略预设列表（chrome.storage.local） */
+export const USER_STRATEGY_PRESETS_KEY = 'user_strategy_presets_v1';
+
+/** 「远端运行时纯数据配置」降级缓存（本地，不上传商店 sync） */
+export const REMOTE_RUNTIME_CONFIG_CACHE_KEY = 'remote_runtime_config_cache_v1';
+
+
+/** 各供应商额度查询结果缓存（local，60s TTL） */
+export const PROVIDER_QUOTA_CACHE_KEY = 'provider_quota_cache_v1';

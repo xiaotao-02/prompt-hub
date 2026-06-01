@@ -1,0 +1,1 @@
+Right-click/hotkey: compose refs, AI prompts (CN/EN, SD, MJ) via your vision endpoint; multi-ref, strategies, chat refine & history.

@@ -1,0 +1,34 @@
+---
+description: 代码质量与重构约定（最小 diff、单 PR 单主题、扩展约束）
+alwaysApply: true
+---
+
+# 代码质量约定
+
+## PR 范围
+
+- **最小 diff**：不混功能开发与纯重构；不顺手改无关文件。
+- **单 PR 单主题**：例如 knip 死代码清理不与 content panel FSM 重构同 PR。
+- 大范围改动优先拆成可 review 的小 PR（可参考全局 skill `split-to-prs`）。
+
+## 合并前验证
+
+结构拆分或移动模块后必须：
+
+```bash
+npm run lint
+npm run test
+npm run build
+```
+
+涉及 `knip` 清理的 PR 另加 `npm run knip` 零 error。
+
+## Chrome 扩展约束
+
+- **background service worker**：消息路由、提取调度、历史持久化改动需 smoke（右键提取、历史写入）。
+- **content script / shadow DOM**：面板状态与样式改动需 dev 预览或页面实测。
+- **chrome.storage / IndexedDB**：字段迁移须说明兼容与回退，避免静默丢数据。
+
+## 自动化审计
+
+用户要求整体质量检查时，使用项目 skill `code-quality-audit`（`.cursor/skills/code-quality-audit/SKILL.md`）。

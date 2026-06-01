@@ -1,0 +1,5 @@
+{
+  "npm.autoDetect": "on",
+  "task.autoDetect": "on",
+  "css.lint.unknownAtRules": "ignore"
+}

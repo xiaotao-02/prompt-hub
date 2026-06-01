@@ -1,0 +1,82 @@
+{
+  "model": "lib-image-2",
+  "resolution": "2K",
+  "quality": "high",
+  "referenceNode": "logo-ref",
+  "tasks": [
+    {
+      "node": "promo-small",
+      "ratio": "3:2",
+      "out": "promo/small-promo-440x280.png",
+      "width": 440,
+      "height": 280,
+      "prompt": "Chrome Web Store small promo tile 440x280 for Prompt Hub extension. Near-black canvas #0a0a0f with subtle purple #7c3aed radial glow, faint logo watermark. Left: reference logo. Right: compact pixel-perfect white UI mock card showing floating reference panel with 3 colorful square thumbnails and one dashed plus tile. Small purple chips below: 动图/视频, Ctrl+Shift+E 框选. Title white: Prompt Hub. Purple accent buttons, clean Inter typography, no cyan/amber honeycomb theme, no browser chrome. 3:2 composition. Keep all text and UI within central 90% safe margins; leave generous empty padding on all edges for crop."
+    },
+    {
+      "node": "promo-marquee",
+      "ratio": "21:9",
+      "out": "promo/marquee-1400x560.png",
+      "width": 1400,
+      "height": 560,
+      "prompt": "Wide Chrome Web Store marquee 1400x560 for Prompt Hub. Near-black canvas #0a0a0f, purple #7c3aed glow, faint logo watermark. Large logo left. Right: one Chinese headline 右键图片，获得 AI 提示词 with 获得 in purple #7c3aed. Below: horizontal three-step UI strip with white mini cards and arrows — 加入参考, 合成反推, 复制即用 — pixel-perfect extension workflow mock. Two small chips: 12+ 视觉模型, 本地存储. Dark-violet SaaS marketing, purple accent, subtle cyan dots, no old cyan/amber honeycomb theme, ultra-wide 21:9, no browser chrome. Keep all text and UI within central 90% safe margins; leave generous empty padding on all edges for crop."
+    },
+    {
+      "node": "shot-1-hero",
+      "ratio": "16:9",
+      "out": "screenshots/screenshot-1-hero.png",
+      "width": 1280,
+      "height": 800,
+      "prompt": "Chrome extension marketing screenshot 1280x800 for Prompt Hub. Near-black canvas #0a0a0f with purple glow and faint logo watermark. Top eyebrow cyan label: 核心流程. Large headline: 右键图片，获得 AI 提示词. Subtitle one line: 动图/视频/框选加入参考，多图合成反推，四种输出风格. Main: three white UI cards in a row — card 1 加入参考 with icons for PNG GIF video and region snip, card 2 合成反推 with buttons 生成提示词 提取材质 提取风格 视频分镜, card 3 复制即用 with tags 自然语言 SD Tag Midjourney and labels 策略档位 版本回溯. Pixel-perfect UI mock on dark canvas, purple #7c3aed accents, no cyan/amber honeycomb theme, no browser chrome frame. Keep all text and UI within central 90% safe margins; leave generous empty padding on all edges for crop."
+    },
+    {
+      "node": "shot-2-reference",
+      "ratio": "16:9",
+      "out": "screenshots/screenshot-2-reference.png",
+      "width": 1280,
+      "height": 800,
+      "prompt": "Chrome Web Store screenshot 1280x800 for Prompt Hub reference panel. Near-black canvas #0a0a0f, purple radial glow. Top eyebrow: Reference Panel. Headline: 参考面板，多图综合理解. Center: large pixel-perfect white floating panel mock — header 参考面板 · 5/8 and hint Ctrl+Shift+E 继续框选. Five square thumbnail tiles labeled 角色 场景 材质 光影 视频帧 plus dashed add tile. Purple primary button 生成提示词, ghost buttons 提取材质 提取风格, small label 视频分镜. Strategy dropdown row and output style tags 自然语言·中文 SD Tag Midjourney. Short prompt preview line in panel body. Dark-violet SaaS style, purple #7c3aed accents, no cyan/amber honeycomb theme, no browser chrome. Keep all text and UI within central 90% safe margins; leave generous empty padding on all edges for crop."
+    },
+    {
+      "node": "shot-3-popup",
+      "ratio": "16:9",
+      "out": "screenshots/screenshot-3-popup.png",
+      "width": 1280,
+      "height": 800,
+      "prompt": "Chrome extension screenshot 1280x800 showing Prompt Hub toolbar popup history. Near-black canvas #0a0a0f, purple glow. Top eyebrow: Toolbar Popup. Headline: 历史记录、版本管理、一键复制. Center: pixel-perfect white popup card 480px wide — header with logo Prompt Hub and top links 截取区域 设置 in purple. Three history rows with style tags 自然语言·中文 SD Tag Midjourney and short 2-line prompt preview each. Row action links: 复制 编辑 版本 召回面板 对话调整 删除. Real extension popup layout mock, purple accent badges, dark-violet marketing canvas, no cyan/amber honeycomb theme, no browser chrome. Keep all text and UI within central 90% safe margins; leave generous empty padding on all edges for crop."
+    },
+    {
+      "node": "shot-4-settings",
+      "ratio": "16:9",
+      "out": "screenshots/screenshot-4-settings.png",
+      "width": 1280,
+      "height": 800,
+      "prompt": "Chrome Web Store screenshot 1280x800 for Prompt Hub options page. Near-black canvas #0a0a0f, purple glow, faint logo watermark. Top eyebrow: Options Page. Headline: 粘贴 Key，快速开始. Center: large pixel-perfect white settings card — header Prompt Hub · 设置 with tabs 设置 提示词库 and green badge 已保存. Purple summary bar 智谱 GLM · glm-4v-flash and note API Key 已配置 · 跨设备 sync 同步. Recommended provider chips OpenAI 智谱 GLM 通义千问 SiliconFlow. Field label 粘贴 API Key 或 curl 一键导入 with masked sk-dots input. MODEL dropdown showing glm-4v-flash. Clean SaaS form UI, purple #7c3aed accents, no cyan/amber honeycomb theme, no browser chrome. Keep all text and UI within central 90% safe margins; leave generous empty padding on all edges for crop."
+    },
+    {
+      "node": "shot-5-providers",
+      "ratio": "16:9",
+      "out": "screenshots/screenshot-5-providers.png",
+      "width": 1280,
+      "height": 800,
+      "prompt": "Chrome extension marketing screenshot 1280x800 multi-provider grid for Prompt Hub. Near-black canvas #0a0a0f, purple glow. Top eyebrow: Multi-Provider. Headline: 12+ 视觉模型，自由切换. Main: 4x3 grid of white provider cards with icon and name only — OpenAI, Anthropic, Google, 智谱 GLM, 通义千问, SiliconFlow, DeepSeek, Moonshot, 豆包, 百度千帆, OpenRouter, Custom. Bottom dark card with lock icon and one line: 本地存储 · 无后端 · 开源 MIT. Pixel-perfect provider picker UI mock, purple #7c3aed accent tags on cards, dark-violet SaaS style, no cyan/amber honeycomb theme, no browser chrome. Keep all text and UI within central 90% safe margins; leave generous empty padding on all edges for crop."
+    },
+    {
+      "node": "readme-context-menu",
+      "ratio": "16:9",
+      "out": "docs/images/readme/context-menu.png",
+      "width": 1280,
+      "height": 800,
+      "storeAsset": false,
+      "prompt": "Chrome extension README marketing image 1280x800 for Prompt Hub right-click workflow. Near-black canvas #0a0a0f with subtle purple #7c3aed radial glow. Left: blurred dark webpage with a colorful photo thumbnail. Right: pixel-perfect Chrome native context menu mock on dark translucent panel — parent row Prompt Hub with small purple extension icon, submenu items in Chinese: 添加参考, 提取提示词. Clean system menu typography, white text on dark gray menu, purple accent on extension name only. Eyebrow label: 右键即用. Headline: 添加参考或立即反推. No browser chrome frame, no cyan/amber honeycomb theme. Keep all text and UI within central 90% safe margins; leave generous empty padding on all edges for crop."
+    },
+    {
+      "node": "readme-prompt-library",
+      "ratio": "16:9",
+      "out": "docs/images/readme/prompt-library.png",
+      "width": 1280,
+      "height": 800,
+      "storeAsset": false,
+      "prompt": "Chrome Web Store screenshot 1280x800 for Prompt Hub options page prompt library. Near-black canvas #0a0a0f, purple #7c3aed radial glow, faint logo watermark. Top eyebrow: Prompt Library. Headline: 文件夹管理，大图编辑，AI 调整. Center: large pixel-perfect white options page mock — header Prompt Hub with tabs 设置 and 提示词库 active, green badge 已保存. Left sidebar folder tree: 未分类 人像 场景 材质 with purple highlight on active folder. Main grid: 3 prompt cards with square thumbnail previews, Chinese titles, version chips v2 v3. Purple buttons 新建文件夹 AI 调整 复制. Dark-violet SaaS marketing style, purple accents, no cyan/amber honeycomb theme, no browser chrome. Keep all text and UI within central 90% safe margins; leave generous empty padding on all edges for crop."
+    }
+  ]
+}

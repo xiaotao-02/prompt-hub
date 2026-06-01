@@ -1,0 +1,16 @@
+{
+  "productName": "Prompt Hub",
+  "colors": {
+    "background": "#0a0a0f",
+    "backgroundSoft": "#12121a",
+    "violet": "#7c3aed",
+    "violetSoft": "#ede9fe",
+    "cyan": "#22d3ee",
+    "panel": "#ffffff",
+    "ink": "#0f172a",
+    "inkSoft": "#475569"
+  },
+  "visualStyle": "Near-black dark canvas (#0a0a0f) with subtle purple (#7c3aed) radial glows and faint logo watermark. Center: pixel-perfect white UI mock card matching Chrome extension popup/panel/options layout — clean SaaS UI, purple accent buttons and badges, small cyan highlight dots. Modern dark-violet SaaS marketing screenshot style.",
+  "safeArea": "Keep all text and UI within central 90% safe margins; leave generous empty padding on all edges for crop.",
+  "promptTone": "pixel-perfect UI mock on dark canvas, moderate Chinese labels, real extension layout"
+}

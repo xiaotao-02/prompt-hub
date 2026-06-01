@@ -1,0 +1,357 @@
+import type { ExtractStage, StreamDeliveryMode } from '@/lib/types';
+import {
+  BUFFERED_STREAM_HINT,
+  formatElapsed,
+  refineStageHint,
+  refineStageProgress,
+} from '@/lib/refineProgressUi';
+import {
+  EXTRACT_STREAM_VERSION_ID,
+  REFINE_STREAM_VERSION_ID,
+  extractStreamDisplayedBody,
+  parseExtractJobSentinel,
+} from '@/lib/streamVersionSentinels';
+
+export {
+  BUFFERED_STREAM_HINT,
+  formatElapsed,
+  refineStageHint,
+  refineStageProgress,
+} from '@/lib/refineProgressUi';
+import {
+  panel,
+  currentState,
+  loadingTickHandle,
+  setLoadingTickHandle,
+  refineTickHandle,
+  setRefineTickHandle,
+  panelActions,
+  panelExtractJobs,
+  panelHasActiveRefine,
+  primaryRefineJobForUi,
+} from './state';
+import type { PanelState } from './state';
+
+export function extractStreamModeForUi(state: PanelState): StreamDeliveryMode | undefined {
+  const fromJob = panelExtractJobs(state).find((j) => j.streamMode)?.streamMode;
+  return fromJob ?? state.streamMode;
+}
+import { syncEditorCharCount } from './dirtyChrome';
+import { patchStrategyDropdownSelection, strategyHeaderLabel } from './strategyDisplay';
+
+export {
+  resolveStrategyDisplayId,
+  strategyDisplayLabel,
+  strategyHeaderLabel,
+} from './strategyDisplay';
+
+function loadingMainEditorPatchValue(state: PanelState): string {
+  if (state.status === 'loading') {
+    const sel = state.selectedVersionId;
+    if (
+      sel &&
+      sel !== EXTRACT_STREAM_VERSION_ID &&
+      !sel.startsWith(`${EXTRACT_STREAM_VERSION_ID}:`)
+    ) {
+      const v = state.versions?.find((x) => x.id === sel);
+      if (v) return v.prompt;
+    }
+    return extractStreamDisplayedBody(state);
+  }
+  return state.partial ?? '';
+}
+
+/**
+ * 策略 id → loading 面板上显示的简短中文 label。
+ *
+ * 直接复用 `strategies.ts` 的 `STRATEGY_LABELS`（顶层纯派生：只读 STRATEGIES
+ * 的 label 字段，不会触发 STYLE_PROMPT_SETS 等几 KB 字符串的引用）。content
+ * script 这里只 import `STRATEGY_LABELS` / `DEFAULT_STRATEGY_ID`，加上
+ * `STRATEGY_LIST` 已改成 lazy 函数 `getStrategyList()`、模块顶层不再 evaluate
+ * 重对象，tree-shaking 会把 STYLE_PROMPT_SETS / SAMPLING_PROFILES / CUSTOM_JOINS
+ * 从 content chunk 里 drop 掉，不会因为这次改动让 content bundle 变胖。
+ *
+ * 加 / 删一档策略时这里**完全不需要同步**：strategies.ts 改完 STRATEGIES_INTERNAL
+ * 即可，TS 会通过 StrategyId 类型变更自动让所有引用点跟上。
+ *
+ * 老 settings 里残留的已下线 id（如 'fidelity'）走 DEFAULT_STRATEGY_ID 兜底。
+ */
+/** loading header badge：`undefined` 时不显示，有值时走 display 兜底。 */
+export function strategyLabel(id: Parameters<typeof strategyHeaderLabel>[0]): string {
+  return strategyHeaderLabel(id);
+}
+
+/**
+ * 若长时间无任何 EXTRACT_PROGRESS / RESULT / ERROR（例如 postToTab 全丢、受限页面），
+ * 避免面板永久卡在 loading。每次收到进度补丁时重置计时。
+ */
+const LOADING_STALL_MS = 120_000;
+let loadingStallWatchHandle: number | null = null;
+
+export function stopLoadingStallWatchdog(): void {
+  if (loadingStallWatchHandle !== null) {
+    window.clearTimeout(loadingStallWatchHandle);
+    loadingStallWatchHandle = null;
+  }
+}
+
+export function manageLoadingStallWatchdog(state: PanelState): void {
+  stopLoadingStallWatchdog();
+  if (state.status !== 'loading' || !state.startedAt) return;
+  const watchedRequestId = state.sessionRequestId;
+  const watchedStartedAt = state.startedAt;
+  loadingStallWatchHandle = window.setTimeout(() => {
+    loadingStallWatchHandle = null;
+    if (!currentState || currentState.status !== 'loading') return;
+    if (
+      currentState.sessionRequestId !== watchedRequestId ||
+      currentState.startedAt !== watchedStartedAt
+    ) {
+      return;
+    }
+    panelActions.renderPanel({
+      ...currentState,
+      status: 'error',
+      error:
+        '长时间未收到后台进度。可能是当前页无法与扩展通信（如受限页面），或网络异常。可刷新页面后重试，或关闭面板重新提取。',
+      stage: undefined,
+      partial: undefined,
+    });
+  }, LOADING_STALL_MS);
+}
+
+// 已用时计时：loading 中每 200ms 更新一次 .elapsed 文本节点。
+export function manageLoadingTicker(state: PanelState): void {
+  if (state.status !== 'loading' || !state.startedAt) {
+    stopLoadingTicker();
+    stopLoadingStallWatchdog();
+    return;
+  }
+  if (loadingTickHandle !== null) return;
+  setLoadingTickHandle(
+    window.setInterval(() => {
+      if (!panel || !currentState || currentState.status !== 'loading') {
+        stopLoadingTicker();
+        return;
+      }
+      const el = panel.querySelector<HTMLElement>('[data-role="elapsed"]');
+      if (el && currentState.startedAt) {
+        el.textContent = formatElapsed(Date.now() - currentState.startedAt);
+      }
+    }, 200),
+  );
+}
+
+export function stopLoadingTicker(): void {
+  if (loadingTickHandle !== null) {
+    window.clearInterval(loadingTickHandle);
+    setLoadingTickHandle(null);
+  }
+}
+
+export function stageLabel(_stage: ExtractStage | undefined): string {
+  // 标题统一显示"正在反推图片提示词…"，不再随阶段切换。
+  // 真正的阶段信息靠下方的进度条和底部 hint 表达。
+  return '正在反推图片提示词…';
+}
+
+/** loading 阶段下，进度条对应的「视觉百分比」。纯心理安抚，不代表真实进度。 */
+export function stageProgress(stage: ExtractStage | undefined, hasPartial: boolean): number {
+  if (stage === 'fetching') return 0.18;
+  if (stage === 'streaming' || hasPartial) return 0.78;
+  if (stage === 'finalizing') return 0.95;
+  return 0.42; // calling
+}
+
+/**
+ * loading 阶段下，进度条下方那行 hint 显示的「当前在做什么」。
+ * 跟着 stage 切，让用户能看到扩展真的在推进而不是卡住。
+ */
+export function stageHint(
+  stage: ExtractStage | undefined,
+  hasPartial: boolean,
+  streamMode?: StreamDeliveryMode,
+): string {
+  if (stage === 'fetching') return '正在下载图片…';
+  if (hasPartial) return '正在接收模型回复…';
+  if (streamMode === 'buffered') return BUFFERED_STREAM_HINT;
+  if (stage === 'streaming') return '正在接收模型回复…';
+  if (stage === 'finalizing') return '正在保存结果…';
+  return '正在调用大模型…';
+}
+
+/**
+ * loading 状态下的"轻量刷新"：只改阶段文案、计时、进度条宽度、流式预览
+ * 的 textarea 内容，不替换 DOM 节点。
+ */
+export function applyLoadingPatch(state: PanelState): void {
+  if (!panel) return;
+  const stageEl = panel.querySelector<HTMLElement>('[data-role="stage-label"]');
+  if (stageEl) stageEl.textContent = stageLabel(state.stage);
+
+  // 策略 badge：可能在 PENDING 时还没有，要在 settings 加载完后追加上去。
+  // 直接覆盖文本即可；空值时清空文本但保留节点位置不抖动 header。
+  const strategyEl = panel.querySelector<HTMLElement>('[data-role="strategy-badge"]');
+  if (strategyEl) {
+    const label = strategyHeaderLabel(state.strategy);
+    strategyEl.textContent = label ? `策略：${label}` : '';
+    strategyEl.classList.toggle('hidden', !label);
+  }
+
+  if (state.strategy !== undefined) {
+    patchStrategyDropdownSelection(panel, state.strategy);
+  }
+
+  // 模型 badge：和 strategy 同时（settings 加载完）补发，用 "provider · model"
+  // 形式让用户看清"这次到底用谁的什么模型在跑"。空值时整块隐藏。
+  const modelEl = panel.querySelector<HTMLElement>('[data-role="model-badge"]');
+  if (modelEl) {
+    const modelLabel = state.model
+      ? `${state.provider ? state.provider + ' · ' : ''}${state.model}`
+      : '';
+    modelEl.textContent = modelLabel;
+    modelEl.classList.toggle('hidden', !modelLabel);
+    if (modelLabel) modelEl.setAttribute('title', `本次使用：${modelLabel}`);
+  }
+
+  const anyExtractPartial = panelExtractJobs(state).some((j) => !!(j.partial ?? '').trim());
+  const hasPartial =
+    anyExtractPartial || !!(state.partial ?? '').trim() || !!state.extractBaselinePrompt?.trim();
+  const barEl = panel.querySelector<HTMLElement>('[data-role="bar-fill"]');
+  if (barEl) {
+    barEl.style.width = `${Math.round(stageProgress(state.stage, hasPartial) * 100)}%`;
+  }
+
+  const hintEl = panel.querySelector<HTMLElement>('[data-role="stage-hint"]');
+  if (hintEl) {
+    hintEl.textContent = stageHint(state.stage, hasPartial, extractStreamModeForUi(state));
+  }
+
+  const elapsedEl = panel.querySelector<HTMLElement>('[data-role="elapsed"]');
+  if (elapsedEl && state.startedAt) {
+    elapsedEl.textContent = formatElapsed(Date.now() - state.startedAt);
+  }
+
+  const copyBtn = panel.querySelector<HTMLButtonElement>('[data-role="copy-button"]');
+  if (copyBtn) {
+    const canCopy =
+      hasPartial || !!(state.extractBaselinePrompt && state.extractBaselinePrompt.trim());
+    copyBtn.disabled = !canCopy;
+    copyBtn.classList.toggle('disabled', !canCopy);
+  }
+
+  const previewingExtractHistory =
+    state.selectedVersionId != null &&
+    state.selectedVersionId !== EXTRACT_STREAM_VERSION_ID &&
+    parseExtractJobSentinel(state.selectedVersionId ?? undefined) == null;
+
+  const editor = panel.querySelector<HTMLTextAreaElement>('[data-role="editor"]');
+  if (editor && !previewingExtractHistory) {
+    const atBottom = Math.abs(editor.scrollHeight - editor.clientHeight - editor.scrollTop) < 8;
+    editor.value = loadingMainEditorPatchValue(state);
+    if (atBottom) editor.scrollTop = editor.scrollHeight;
+    syncEditorCharCount();
+  }
+
+  // 兼容旧 DOM：如果页面上仍有 stream-preview，则继续按旧逻辑刷新。
+  const previewBox = panel.querySelector<HTMLElement>('[data-role="stream-preview"]');
+  if (previewBox) {
+    if (hasPartial) {
+      previewBox.classList.remove('hidden');
+      let ta = previewBox.querySelector<HTMLTextAreaElement>('textarea');
+      if (!ta) {
+        ta = document.createElement('textarea');
+        ta.className = 'prompt-text streaming';
+        ta.setAttribute('readonly', 'true');
+        ta.setAttribute('spellcheck', 'false');
+        previewBox.appendChild(ta);
+      }
+      // 用户没主动滚动时自动跟随；否则保持滚动位置
+      const atBottom = Math.abs(ta.scrollHeight - ta.clientHeight - ta.scrollTop) < 8;
+      ta.value = loadingMainEditorPatchValue(state);
+      if (atBottom) ta.scrollTop = ta.scrollHeight;
+    } else {
+      previewBox.classList.add('hidden');
+      previewBox.innerHTML = '';
+    }
+  }
+}
+
+// =================== AI 调整（refine）的进度辅助 ===================
+
+/** refine 中每 200ms 更新一次 [data-role="refine-elapsed"]。 */
+export function manageRefineTicker(state: PanelState): void {
+  const job = primaryRefineJobForUi(state);
+  if (!panelHasActiveRefine(state) || !job?.startedAt) {
+    stopRefineTicker();
+    return;
+  }
+  if (refineTickHandle !== null) return;
+  setRefineTickHandle(
+    window.setInterval(() => {
+      if (!panel || !currentState || !panelHasActiveRefine(currentState)) {
+        stopRefineTicker();
+        return;
+      }
+      const j = primaryRefineJobForUi(currentState);
+      const el = panel.querySelector<HTMLElement>('[data-role="refine-elapsed"]');
+      if (el && j?.startedAt) {
+        el.textContent = formatElapsed(Date.now() - j.startedAt);
+      }
+    }, 200),
+  );
+}
+
+export function stopRefineTicker(): void {
+  if (refineTickHandle !== null) {
+    window.clearInterval(refineTickHandle);
+    setRefineTickHandle(null);
+  }
+}
+
+/**
+ * refine 阶段下的"轻量刷新"：不替换面板节点，只改进度条宽度、hint 文案、
+ * elapsed 计时，**并把流式累计的 partial 直接写进主编辑器 textarea**（不再
+ * 渲染单独的副预览框）。这样用户视线无需在「主输入框 / 副预览框」之间来回切，
+ * 体验上更接近 ChatGPT 那种「就地刷新」的感觉。
+ *
+ * 注意：写入主 editor 时不会触发 input 事件（直接赋值 .value），所以 events
+ * 层的 input handler 不会把 partial 误塞进 currentState.draft；refine 完成
+ * 后由 renderPanel 把 editor 恢复到 readonly=false + value=resp.prompt。
+ */
+export function applyRefinePatch(state: PanelState): void {
+  if (!panel) return;
+  const job = primaryRefineJobForUi(state);
+  const hasPartial = !!job?.partial;
+  const barEl = panel.querySelector<HTMLElement>('[data-role="refine-bar-fill"]');
+  if (barEl) {
+    barEl.style.width = `${Math.round(refineStageProgress(job?.stage, hasPartial) * 100)}%`;
+  }
+
+  const hintEl = panel.querySelector<HTMLElement>('[data-role="refine-stage-hint"]');
+  if (hintEl) hintEl.textContent = refineStageHint(job?.stage, hasPartial, job?.streamMode);
+
+  const elapsedEl = panel.querySelector<HTMLElement>('[data-role="refine-elapsed"]');
+  if (elapsedEl && job?.startedAt) {
+    elapsedEl.textContent = formatElapsed(Date.now() - job.startedAt);
+  }
+
+  const sel = state.selectedVersionId;
+  const previewingHistory =
+    !!sel &&
+    sel !== REFINE_STREAM_VERSION_ID &&
+    !sel.startsWith(`${REFINE_STREAM_VERSION_ID}:`) &&
+    !!state.versions?.some((v) => v.id === sel);
+
+  if (!previewingHistory) {
+    const editor = panel.querySelector<HTMLTextAreaElement>('[data-role="editor"]');
+    if (editor) {
+      const streamText =
+        job?.partial ?? job?.refineBaselinePrompt ?? state.draft ?? state.prompt ?? '';
+      const atBottom = Math.abs(editor.scrollHeight - editor.clientHeight - editor.scrollTop) < 8;
+      editor.value = streamText;
+      if (atBottom) editor.scrollTop = editor.scrollHeight;
+      syncEditorCharCount();
+    }
+  }
+}
