@@ -20,7 +20,7 @@
 
 本仓库默认启用 **GitHub Actions 自动发版**（与下文 §1–3 对齐），对应 workflow：[publish-chrome-store.yml](../.github/workflows/publish-chrome-store.yml)。若你以后只想在 Chrome 开发者控制台手工上传 zip，可在 Actions 里 **Disable workflow** `Publish to Chrome Web Store`，并忽略 §1–3。
 
-已通过审核并存活的列表页可参考：[Chrome 应用商店：Prompt Hub](https://chromewebstore.google.com/detail/prompt-hub/oaanodmbndnpeohmfoedgmfleabhdmkg)。
+已通过审核并存活的列表页可参考：[Chrome 应用商店：Prompt Hub](https://github.com/xiaotao-02/prompt-hub/releases)。
 
 **填写 `CWS_EXTENSION_ID`**：打开上文商店列表链接，从地址栏 URL 中取路径末尾**连续的 32 位小写字母**（EXTENSION_ID）；该值仅在 GitHub **Actions Secret** 中配置，不要在仓库源码或文档里再抄写一遍。
 

@@ -17,7 +17,8 @@ import { isNewerVersion } from '@/lib/version';
 import type { ApplyExtensionUpdateResult, UpdateCheckResult, UpdateSettings } from '@/lib/types';
 import { Button } from '@/components/ui';
 
-const GITHUB_RELEASES_URL = 'https://github.com/xiaotao-02/prompt-hub/releases';
+const CWS_URL =
+  'https://github.com/xiaotao-02/prompt-hub/releases';
 
 /**
  * 「检查更新 / 立即更新」面板。
@@ -156,7 +157,7 @@ export default function UpdateSection({ variant = 'card' }: { variant?: 'card' |
         （Edge：
         <code className="font-mono">edge://extensions</code>）对本扩展点「重新加载」，或改从{' '}
         <a
-          href={GITHUB_RELEASES_URL}
+          href={CWS_URL}
           target="_blank"
           rel="noreferrer"
           className="text-violet-500 hover:underline inline-flex items-center gap-0.5"
@@ -221,7 +222,7 @@ export default function UpdateSection({ variant = 'card' }: { variant?: 'card' |
                 <div className="text-[11px] text-zinc-500 mt-0.5">
                   {u.lastCheckedAt && `上次检查于 ${new Date(u.lastCheckedAt).toLocaleString()} · `}
                   <a
-                    href={GITHUB_RELEASES_URL}
+                    href={CWS_URL}
                     target="_blank"
                     rel="noreferrer"
                     className="text-violet-500 hover:underline inline-flex items-center gap-0.5"

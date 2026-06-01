@@ -144,5 +144,5 @@ console.log('  2) 「新增项目」上传上面的 zip');
 console.log('  3) 把 store-listing/ 下的中英文文案复制粘贴到对应表单字段');
 console.log('  4) 上传 store-assets/ 下的宣传图与截图');
 console.log('  5) 隐私政策 URL 填：');
-console.log('     https://github.com/xiaotao-02/prompt-hub/blob/main/PRIVACY.md');
+console.log('     https://github.com/xiaotao-02/prompt-hub');
 console.log('==================================');

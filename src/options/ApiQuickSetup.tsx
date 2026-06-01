@@ -266,7 +266,7 @@ export default function ApiQuickSetup({
                     MiniMax 识图请选 VL 多模态模型，勿用 M2 纯文本。
                     <a
                       className="text-violet-600 dark:text-violet-300 underline ml-1"
-                      href="https://github.com/xiaotao-02/prompt-hub#readme"
+                      href="https://github.com/xiaotao-02/prompt-hub"
                       target="_blank"
                       rel="noreferrer"
                     >

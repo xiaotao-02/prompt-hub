@@ -222,15 +222,15 @@ function Start-DevService {
 Write-Host 'dev:previews preparing local environment...'
 
 $websiteEnvChanged = Set-LocalDevEnv (Join-Path $RepoRoot 'website') @{
-  'PUBLIC_API_URL'           = 'http://localhost:8787'
-  'PUBLIC_MOCK_PAY_ENABLED'  = 'true'
-  'PUBLIC_PRICING_ENABLED'   = 'true'
+  'NEXT_PUBLIC_API_URL'          = 'http://localhost:8787'
+  'NEXT_PUBLIC_MOCK_PAY_ENABLED' = 'true'
+  'NEXT_PUBLIC_PRICING_ENABLED'  = 'true'
 }
 $apiEnvChanged = Set-LocalDevEnv (Join-Path $RepoRoot 'services/api') @{
   'MOCK_PAY_ENABLED' = 'true'
   'SITE_URL'         = 'http://localhost:4321'
   'API_PUBLIC_URL'   = 'http://localhost:8787'
-  'CORS_ORIGIN'      = 'http://localhost:4321,http://localhost:5173,https://PromptHub.com'
+  'CORS_ORIGIN'      = 'http://localhost:4321,http://localhost:5173,https://github.com/xiaotao-02/prompt-hub'
   'EMAIL_DEV_LOG'    = 'true'
 }
 $extensionEnv = @{

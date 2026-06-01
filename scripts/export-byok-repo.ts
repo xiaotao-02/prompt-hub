@@ -11,8 +11,9 @@ import { existsSync, mkdirSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { applyAllByokPatches } from './byok/applyPatches.js';
-import { copyRepoTree } from './byok/copyTree.js';
+import { applyOverlayFiles, copyRepoTree } from './byok/copyTree.js';
 import { writeOpenRepoDocs } from './byok/generateDocs.js';
+import { renameBrand } from './byok/renameBrand.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(here, '..');
@@ -62,8 +63,12 @@ function main(): void {
   applyAllByokPatches(out, overlayRoot, repoRoot);
   console.log('[export:byok] 生成公开版文档…');
   writeOpenRepoDocs(out, repoRoot);
+  console.log('[export:byok] 重新应用文档/资源 overlay…');
+  applyOverlayFiles(repoRoot, out, overlayRoot);
+  console.log('[export:byok] 应用 Prompt Hub 品牌 sweep…');
+  renameBrand(out);
 
-  console.log('[export:byok] 补丁与文档已写入');
+  console.log('[export:byok] 补丁、文档与品牌 sweep 已写入');
 
   if (verify) {
     console.log(

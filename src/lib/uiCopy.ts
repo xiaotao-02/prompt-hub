@@ -24,8 +24,8 @@ export const UI_NAV = {
   openLibraryAria: '打开提示词库',
   openSettings: '设置',
   openSettingsTitle: '打开选项页的设置',
-  openWebsite: 'GitHub',
-  openWebsiteTitle: '打开 Prompt Hub 开源仓库',
+  openWebsite: '官网',
+  openWebsiteTitle: '打开 Prompt Hub 官网',
   regionCapture: '截取',
   regionCaptureTitle:
     '在网页上框选矩形区域后加入参考列表（右键被站点接管时使用）· 快捷键 Ctrl+Shift+E',

@@ -7,7 +7,7 @@ export default defineManifest({
   // Chrome Web Store 对 manifest description 显示截断在 ~132 字符，
   // 这里保留中文一句话；商店页面更详细的中英描述见 store-listing/。
   description:
-    'Image to Prompt · 聚合多家视觉 API，右键图片/视频或 Ctrl+Shift+E 框选反推 AI 绘画提示词；多图合成、策略档位、对话改写与版本回溯。',
+    '右键图片/动图/视频或 Ctrl+Shift+E 框选加入参考，自备视觉 API 反推 AI 绘画提示词（中/英·SD·MJ）；多图合成、策略档位、对话改写与版本回溯。',
   version: pkg.version,
   // 上架展示给用户的"开发者主页"，必须是可公开访问的仓库 / 站点。
   homepage_url: 'https://github.com/xiaotao-02/prompt-hub',
@@ -45,7 +45,7 @@ export default defineManifest({
       all_frames: true,
     },
   ],
-  permissions: ['contextMenus', 'storage', 'scripting', 'activeTab', 'clipboardWrite'],
+  permissions: ['contextMenus', 'storage', 'scripting', 'activeTab', 'clipboardWrite', 'identity'],
   host_permissions: ['<all_urls>'],
   commands: {
     'region-capture-add-ref': {

@@ -7,12 +7,8 @@ useDefault = true
 description = "测试占位符与示例文件"
 paths = [
   '''(?i)(^|/)src/.*\.test\.ts$''',
-  '''(?i)(^|/)services/api/src/.*\.test\.ts$''',
   '''(?i)(^|/)scripts/.*\.ts$''',
-  '''(?i)(^|/)services/api/\.env\.example$''',
-  '''(?i)(^|/)website/\.env\.example$''',
   '''(?i)(^|/)docs/CHROME_WEB_STORE_CI\.md$''',
-  '''(?i)(^|/)store-listing/.*$''',
 ]
 regexes = [
   '''sk-test''',

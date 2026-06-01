@@ -18,9 +18,7 @@ interface Props extends ProviderSettingsPanelProps {
 export default function ProviderSettingsPanel({
   settings,
   providerRole,
-  setProviderRole,
-  onNavigatePanel: _onNavigatePanel,
-  fetchingModels,
+  setProviderRole,  fetchingModels,
   fetchingProviderIds,
   fetchModelsError,
   providerInferenceHint,
@@ -113,6 +111,8 @@ export default function ProviderSettingsPanel({
             : '用于 AI 调整、一键洗稿等对已生成提示词的文本改写；默认与首选 API 相同，可单独选择供应商或模型。'}
         </p>
       </div>
+
+
 
       <div>
         <label className="label" htmlFor="provider-select">

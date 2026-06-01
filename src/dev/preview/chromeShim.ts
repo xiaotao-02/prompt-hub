@@ -195,12 +195,8 @@ export function installChromePreviewShim(): void {
         try {
           const payload = (message as { payload?: { providerId?: unknown; force?: unknown } }).payload;
           const { fetchProviderQuota } = await import('@/lib/quota/fetch');
-          const providerId =
-            typeof payload?.providerId === 'string'
-              ? (payload.providerId as import('@/lib/types').ProviderId)
-              : undefined;
           const snapshot = await fetchProviderQuota({
-            providerId,
+            providerId: payload?.providerId as import('@/lib/types').ProviderId | undefined,
             force: Boolean(payload?.force),
           });
           return { ok: true as const, snapshot };
