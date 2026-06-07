@@ -1,10 +1,17 @@
 import { useEffect, useMemo, useState } from 'react';
-import { CheckCircle2, ClipboardCopy, ClipboardCheck, Sparkles, KeyRound } from 'lucide-react';
+import {
+  CheckCircle2,
+  ChevronDown,
+  ClipboardCopy,
+  ClipboardCheck,
+  Sparkles,
+  KeyRound,
+} from 'lucide-react';
 import { PROVIDERS } from '@/lib/providers';
 import { importFromText } from '@/lib/configImport';
 import type { AppSettings, ProviderId } from '@/lib/types';
 import { resolveEffectiveRefineModel, resolveEffectiveRefineProvider } from '@/lib/providerRoles';
-import { Button, Collapsible } from '@/components/ui';
+import { Button, Collapsible, cx } from '@/components/ui';
 import { UI_ACTION } from '@/lib/uiCopy';
 import { UI_COPY_FEEDBACK_MS } from '@/lib/uiFeedback';
 
@@ -13,7 +20,7 @@ export type ProviderSetupRole = 'extract' | 'refine';
 interface Props {
   settings: AppSettings;
   applyConfig: (next: AppSettings) => Promise<void>;
-  /** 当前配置的是首选（识图）还是次选（AI 调整） */
+  /** 当前配置的是反推（识图）还是改写（AI 调整） */
   role?: ProviderSetupRole;
   /** 拉取模型列表后的 Provider 推断提示（由 SettingsView 传入） */
   providerInferenceHint?: string | null;
@@ -41,7 +48,7 @@ export default function ApiQuickSetup({
   const activeMeta = PROVIDERS[roleProviderId];
   const effectiveModel =
     role === 'refine' ? resolveEffectiveRefineModel(settings) : activeCfg.model;
-  const roleLabel = role === 'extract' ? '首选' : '次选';
+  const roleLabel = role === 'extract' ? '反推' : '改写';
 
   const [importText, setImportText] = useState('');
   const [importError, setImportError] = useState<string | null>(null);
@@ -138,62 +145,58 @@ export default function ApiQuickSetup({
   return (
     <div className="space-y-3">
       {effectiveHasKey && !editOpen && activeCfg && activeMeta && (
-        <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-emerald-200/80 dark:border-emerald-500/25 bg-emerald-50/50 dark:bg-emerald-500/5 px-3 py-2">
-          <div className="flex items-center gap-2 min-w-0">
-            <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-300 shrink-0" />
-            <div className="min-w-0 text-sm text-zinc-800 dark:text-zinc-100 truncate">
-              <span className="text-[10px] font-normal text-zinc-500 mr-1">{roleLabel}</span>
-              {activeMeta.label}
-              <span className="text-zinc-400 font-normal mx-1">·</span>
-              <span className="font-mono text-xs text-zinc-600 dark:text-zinc-300">
-                {role === 'refine'
-                  ? effectiveModel || activeMeta.defaultModel
-                  : activeCfg.model || activeMeta.defaultModel}
-              </span>
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-zinc-200 bg-white px-3 py-2.5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
+          <div className="flex min-w-0 flex-1 items-center gap-2.5">
+            <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-500/90 dark:text-emerald-400/90" />
+            <div className="min-w-0">
+              <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+                <span className="ui-chip shrink-0">{roleLabel}</span>
+                <span className="truncate text-sm font-medium text-zinc-800 dark:text-zinc-100">
+                  {activeMeta.label}
+                </span>
+                <span className="font-mono text-xs text-zinc-500 dark:text-zinc-400">
+                  {role === 'refine'
+                    ? effectiveModel || activeMeta.defaultModel
+                    : activeCfg.model || activeMeta.defaultModel}
+                </span>
+              </div>
+              {displayHint && (
+                <p className="mt-1 text-[11px] leading-snug text-zinc-500 dark:text-zinc-400 break-words">
+                  {displayHint}
+                </p>
+              )}
             </div>
-            {displayHint && (
-              <span className="text-[11px] text-emerald-600 dark:text-emerald-300 truncate hidden sm:inline">
-                {displayHint}
-              </span>
-            )}
           </div>
-          <div className="flex items-center gap-2 shrink-0">
-            <Button
-              type="button"
-              variant="secondary"
-              size="xs"
-              onClick={() => onFocusModelField?.()}
-            >
+          <div className="flex shrink-0 items-center gap-1.5">
+            <Button type="button" variant="ghost" size="xs" onClick={() => onFocusModelField?.()}>
               换模型
             </Button>
-            <Button
-              type="button"
-              variant="primary"
-              size="xs"
-              className="shadow-sm"
-              onClick={() => setEditOpen(true)}
-            >
-              一键导入api
+            <Button type="button" variant="secondary" size="xs" onClick={() => setEditOpen(true)}>
+              重新导入
             </Button>
           </div>
         </div>
       )}
 
       {showImportRow && (
-        <div className="rounded-xl border border-violet-200 dark:border-violet-500/30 bg-gradient-to-b from-violet-50/70 to-white dark:from-violet-500/10 dark:to-zinc-900/40 p-4 space-y-3">
-          <p className="text-xs inline-flex flex-wrap items-center gap-1.5">
-            <KeyRound className="w-3.5 h-3.5 text-violet-500 shrink-0" />
-            <span className="font-semibold text-violet-700 dark:text-violet-300">一键导入 API</span>
-            <span className="text-zinc-500 dark:text-zinc-400">
-              ，粘贴 Key、curl 或 JSON，自动填入上方字段
-            </span>
-          </p>
+        <div className="space-y-4 rounded-lg border border-zinc-200 bg-zinc-50/60 p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-950/35">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <KeyRound className="h-3.5 w-3.5 shrink-0 text-violet-500" />
+              <h3 className="text-sm font-semibold text-zinc-800 dark:text-zinc-100">
+                一键导入 API
+              </h3>
+            </div>
+            <p className="text-[11px] leading-relaxed text-zinc-500 dark:text-zinc-400">
+              粘贴 Key、curl 或 JSON，自动填入上方字段
+            </p>
+          </div>
 
           <div className="space-y-2">
             <div className="flex flex-col gap-2 sm:flex-row sm:items-start">
               <textarea
-                rows={1}
-                className="input h-10 min-h-0 max-h-24 flex-1 resize-y font-mono text-[12px] leading-[1.5]"
+                rows={3}
+                className="input min-h-[4.5rem] max-h-40 flex-1 resize-y font-mono text-[12px] leading-[1.5]"
                 placeholder='sk-... 或 {"provider":"zhipu","apiKey":"..."}'
                 value={importText}
                 onChange={(e) => {
@@ -205,7 +208,8 @@ export default function ApiQuickSetup({
               <Button
                 type="button"
                 variant="primary"
-                className="shrink-0 h-10 px-4"
+                size="sm"
+                className="h-10 shrink-0 px-4"
                 onClick={() => void onImport()}
                 disabled={importing || !importText.trim()}
               >
@@ -214,13 +218,13 @@ export default function ApiQuickSetup({
             </div>
 
             {displayHint && (
-              <p className="text-[11px] text-emerald-600 dark:text-emerald-300 inline-flex flex-wrap items-center gap-1">
-                <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+              <p className="inline-flex flex-wrap items-center gap-1 text-[11px] text-emerald-600 dark:text-emerald-400">
+                <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
                 <span>{displayHint}</span>
                 {providerInferenceHint && onDismissInferenceHint && (
                   <button
                     type="button"
-                    className="text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 underline"
+                    className="text-zinc-400 underline hover:text-zinc-600 dark:hover:text-zinc-300"
                     onClick={onDismissInferenceHint}
                   >
                     关闭
@@ -230,13 +234,13 @@ export default function ApiQuickSetup({
             )}
 
             {importError && (
-              <div className="text-[11px] leading-snug px-2.5 py-1.5 rounded-md bg-rose-100 text-rose-700 dark:bg-rose-500/15 dark:text-rose-300 whitespace-pre-wrap break-words">
+              <div className="whitespace-pre-wrap break-words rounded-md bg-rose-100 px-2.5 py-1.5 text-[11px] leading-snug text-rose-700 dark:bg-rose-500/15 dark:text-rose-300">
                 {importError}
               </div>
             )}
           </div>
 
-          <div className="border-t border-zinc-200 dark:border-zinc-800">
+          <div className="border-t border-zinc-200 pt-1 dark:border-zinc-800">
             <button
               type="button"
               onClick={() => setHelpOpen((v) => !v)}
@@ -244,15 +248,20 @@ export default function ApiQuickSetup({
               aria-expanded={helpOpen}
             >
               <span>需要帮助？</span>
-              <span className="text-zinc-400">{helpOpen ? '−' : '+'}</span>
+              <ChevronDown
+                className={cx(
+                  'h-3.5 w-3.5 shrink-0 text-zinc-400 ui-chevron-spring',
+                  helpOpen && 'rotate-180',
+                )}
+              />
             </button>
             <Collapsible open={helpOpen}>
-              <div className="space-y-2 border-t border-zinc-200 py-3 dark:border-zinc-800">
-                <h3 className="text-xs font-semibold text-zinc-700 dark:text-zinc-200 flex items-center gap-1.5">
-                  <KeyRound className="w-3.5 h-3.5 text-violet-500" />
+              <div className="space-y-2 pb-2 pt-0.5">
+                <h4 className="flex items-center gap-1.5 text-xs font-semibold text-zinc-700 dark:text-zinc-200">
+                  <KeyRound className="h-3.5 w-3.5 text-violet-500" />
                   三步配置
-                </h3>
-                <ol className="space-y-1.5 text-xs text-zinc-600 dark:text-zinc-300 leading-relaxed list-decimal list-inside">
+                </h4>
+                <ol className="list-inside list-decimal space-y-1.5 text-xs leading-relaxed text-zinc-600 dark:text-zinc-300">
                   <li>选择供应商并申请 API Key</li>
                   <li>粘贴 Key 或 curl / JSON，点「一键导入」</li>
                   <li>
@@ -262,28 +271,18 @@ export default function ApiQuickSetup({
                   </li>
                 </ol>
                 {role === 'extract' && (
-                  <p className="text-[11px] text-zinc-500 leading-snug">
+                  <p className="text-[11px] leading-snug text-zinc-500">
                     MiniMax 识图请选 VL 多模态模型，勿用 M2 纯文本。
-                    <a
-                      className="text-violet-600 dark:text-violet-300 underline ml-1"
-                      href="https://github.com/xiaotao-02/prompt-hub"
-                      target="_blank"
-                      rel="noreferrer"
-                    >
-                      说明
-                    </a>
                   </p>
                 )}
                 {role === 'refine' && (
-                  <p className="text-[11px] text-zinc-500 leading-snug">
-                    次选 API 默认与首选相同；仅用于文本改写，可单独指定便宜、响应快的模型。
+                  <p className="text-[11px] leading-snug text-zinc-500">
+                    改写模型默认与反推模型相同；仅用于文本改写，可单独指定便宜、响应快的模型。
                   </p>
                 )}
               </div>
             </Collapsible>
-          </div>
 
-          <div className="border-t border-zinc-200 dark:border-zinc-800">
             <button
               type="button"
               onClick={() => setAdvancedOpen((v) => !v)}
@@ -291,33 +290,38 @@ export default function ApiQuickSetup({
               aria-expanded={advancedOpen}
             >
               <span>高级 · 备份与导入</span>
-              <span className="text-zinc-400">{advancedOpen ? '−' : '+'}</span>
+              <ChevronDown
+                className={cx(
+                  'h-3.5 w-3.5 shrink-0 text-zinc-400 ui-chevron-spring',
+                  advancedOpen && 'rotate-180',
+                )}
+              />
             </button>
             <Collapsible open={advancedOpen}>
-              <div className="space-y-2 border-t border-zinc-200 py-3 dark:border-zinc-800">
+              <div className="space-y-2 pb-1 pt-0.5">
                 <div className="flex items-center justify-between gap-2">
-                  <span className="text-xs font-medium text-zinc-700 dark:text-zinc-200 flex items-center gap-1.5">
-                    <Sparkles className="w-3.5 h-3.5 text-violet-500" />
+                  <span className="flex items-center gap-1.5 text-xs font-medium text-zinc-700 dark:text-zinc-200">
+                    <Sparkles className="h-3.5 w-3.5 text-violet-500" />
                     备份当前{roleLabel}配置
                   </span>
                   <button
                     type="button"
                     onClick={() => void onCopy()}
-                    className="text-[11px] inline-flex items-center gap-1 text-violet-600 dark:text-violet-300 hover:underline disabled:opacity-50"
+                    className="inline-flex items-center gap-1 text-[11px] text-violet-600 hover:underline disabled:opacity-50 dark:text-violet-300"
                     disabled={!effectiveHasKey}
                   >
                     {copied ? (
                       <>
-                        <ClipboardCheck className="w-3.5 h-3.5" /> {UI_ACTION.copied}
+                        <ClipboardCheck className="h-3.5 w-3.5" /> {UI_ACTION.copied}
                       </>
                     ) : (
                       <>
-                        <ClipboardCopy className="w-3.5 h-3.5" /> 复制 JSON
+                        <ClipboardCopy className="h-3.5 w-3.5" /> 复制 JSON
                       </>
                     )}
                   </button>
                 </div>
-                <p className="text-[10px] text-zinc-400 leading-snug">
+                <p className="text-[10px] leading-snug text-zinc-400">
                   导入会立即保存；仅粘贴 Key 时可自动识别厂商。复制内容含 Key，请勿随意分享。
                 </p>
               </div>

@@ -10,10 +10,12 @@ Agent 代码导航见根目录 [`AGENTS.md`](../AGENTS.md)。
 
 ## Manifest 定义的独立扩展页（`chrome-extension://…`）
 
-| 类型       | HTML 路径                | React 挂载                                |
-| ---------- | ------------------------ | ----------------------------------------- |
-| 工具栏弹窗 | `src/popup/index.html`   | `src/popup/main.tsx` → `PopupApp.tsx`     |
-| 选项页     | `src/options/index.html` | `src/options/main.tsx` → `OptionsApp.tsx` |
+| 类型       | HTML 路径              | React 挂载                            |
+| ---------- | ---------------------- | ------------------------------------- |
+| 工具栏弹窗 | `src/popup/index.html` | `src/popup/main.tsx` → `PopupApp.tsx` |
+
+**Popup 布局**：宽度与滚动区 `max-height` 以 [`src/popup/popupShell.ts`](../src/popup/popupShell.ts) 为准；`body` 类名由 `main.tsx` 注入。Chrome 自动定高 popup **禁止**在 `html`/`body` 或根布局使用 `vh`/`vw` 高度（见该文件注释）。
+| 选项页 | `src/options/index.html` | `src/options/main.tsx` → `OptionsApp.tsx` |
 
 **合计：2 个顶层页面。**
 
@@ -72,6 +74,8 @@ flowchart LR
 **推荐**：根目录执行 **`npm run dev:previews`**（[`scripts/start-dev-previews.ps1`](../scripts/start-dev-previews.ps1)），一次启动扩展 UI（`5173`）、官网（`4321`）、平台 API（`8787`），并 upsert 本地联调 env。就绪后自动打开扩展聚合页与官网账户页。
 
 1. 仅扩展 UI 时执行 `npm run dev`（默认 `http://localhost:5173`）。就绪后 Vite 会**自动用系统默认浏览器**打开 **`http://localhost:5173/__dev__/ui-preview`**。若只希望起本地服务、不自动弹窗，可设置环境变量 `DEV_PREVIEW_NO_OPEN=1`（Windows PowerShell：`$env:DEV_PREVIEW_NO_OPEN='1'; npm run dev`）。
-2. **`http://localhost:5173/__dev__/ui-preview`**（聚合页以标签切换）：**`#popup`** / **`#options`** / **`#panel`** / **`#contextmenu`** / **`#website`**（前三者为 iframe 内真实 `PopupApp` / `OptionsApp` 与 `panelHtml` + 面板 `STYLE`；第四格为独立静态页 [`context-menu-preview.html`](../src/dev/preview/context-menu-preview.html)，模拟「添加到参考」右键文案）。第五格内嵌官网（`/`、`/account`、`/pricing`、`/docs`）。聚合页快捷键 **`1`–`5`**。源码见 [`src/dev/preview/`](../src/dev/preview/) 与垫片 [`chromeShim.ts`](../src/dev/preview/chromeShim.ts）。
+2. **`http://localhost:5173/__dev__/ui-preview`**（聚合页以标签切换）：**`#popup`** / **`#options`** / **`#panel`** / **`#contextmenu`** / **`#website`**（前三者为 iframe 内真实 `PopupApp` / `OptionsApp` 与 `panelHtml` + 面板 `STYLE`；第四格为独立静态页 [`context-menu-preview.html`](../src/dev/preview/context-menu-preview.html)，模拟「添加到参考」右键文案）。第五格内嵌官网（`/`、`/account`、`/pricing`、`/docs`、`/admin`）。聚合页快捷键 **`1`–`5`**。模块结构见 [`architecture-map.generated.md`](architecture-map.generated.md)（`npm run docs:map`）。源码见 [`src/dev/preview/`](../src/dev/preview/) 与垫片 [`chromeShim.ts`](../src/dev/preview/chromeShim.ts）。
+
+3. **工具栏弹窗预览**（`#popup`）：iframe 固定 **560px** 宽、高度随内容上报（上限 **600px**，与 [`popupShell.ts`](../src/popup/popupShell.ts) 一致）。场景：**有历史·未配置** / **有历史·已配置 Key** / **展开 10 版本**（`#expand=preview-demo-10v`）/ **空列表·首配卡片**。见 [`popupPreviewFrame.css`](../src/dev/preview/popupPreviewFrame.css)、[`seedPreviewSettings.ts`](../src/dev/preview/seedPreviewSettings.ts)。
 
 常用官网：`http://localhost:4321/`、`/account`、`/pricing`、`/docs`。离线说明见 [`plugin-pages-style-preview.html`](plugin-pages-style-preview.html)。

@@ -10,9 +10,24 @@ import { postToTab } from './tabMessaging';
 import { persistHistory } from './history';
 
 const extractionGenerationByTabId = new Map<number, number>();
+const activeRequestIdByTabId = new Map<number, string>();
 
 export function clearTabExtractionGeneration(tabId: number): void {
   extractionGenerationByTabId.delete(tabId);
+  activeRequestIdByTabId.delete(tabId);
+}
+
+function notifySupersededExtraction(tabId: number): void {
+  const prevRequestId = activeRequestIdByTabId.get(tabId);
+  if (!prevRequestId) return;
+  postToTab(tabId, {
+    type: 'EXTRACT_ERROR',
+    payload: {
+      requestId: prevRequestId,
+      ok: false,
+      error: '已被新的反推任务取代',
+    },
+  });
 }
 
 function beginTabExtractionGeneration(tabId: number): number {
@@ -94,10 +109,21 @@ export async function runExtraction(params: {
   videoSegment?: VideoSegmentMeta;
 }): Promise<void> {
   const imageUrls = normalizeReferenceList(params.imageUrls);
-  if (imageUrls.length === 0) return;
+  if (imageUrls.length === 0) {
+    const requestId = params.requestId || crypto.randomUUID();
+    if (params.tabId) {
+      postToTab(params.tabId, {
+        type: 'EXTRACT_ERROR',
+        payload: { requestId, ok: false, error: '没有可用的参考图' },
+      });
+    }
+    return;
+  }
   const imageUrl = imageUrls[0]!;
   const { tabId, pageUrl, pageTitle, strategyOverride, extractFocus, videoSegment } = params;
   const requestId = params.requestId || crypto.randomUUID();
+  notifySupersededExtraction(tabId);
+  activeRequestIdByTabId.set(tabId, requestId);
   const runGeneration = beginTabExtractionGeneration(tabId);
   const postTab = (message: RuntimeMessage) => {
     if (!extractionStillCurrent(tabId, runGeneration)) return;
@@ -128,6 +154,7 @@ export async function runExtraction(params: {
         payload: {
           requestId,
           strategy: strategyOverride ?? settings.promptStrategy,
+          outputStyle: settings.outputStyle,
           provider: activeProvider,
           model: activeModel,
           oneClickRewriteRandomness: settings.oneClickRewriteRandomness,
@@ -198,7 +225,6 @@ export async function runExtraction(params: {
         style: result.style,
       },
     });
-
 
     if (settings.saveHistory) {
       const precomputedThumbnails = await thumbnailForPersistPromise;

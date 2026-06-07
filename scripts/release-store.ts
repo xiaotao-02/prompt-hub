@@ -28,6 +28,12 @@ import {
   statSync,
 } from 'node:fs';
 import { join, relative } from 'node:path';
+import {
+  DOMAIN_PLACEHOLDER,
+  findDomainPlaceholderHits,
+  formatLaunchDomainReminder,
+} from './checkLaunchDomain.js';
+import { PRODUCTION_API_URL, PRODUCTION_SITE_URL } from '../src/lib/platform/productionDomain.js';
 
 const root = process.cwd();
 const distDir = join(root, 'dist');
@@ -62,14 +68,35 @@ if (existsSync(distDir)) {
   rmSync(distDir, { recursive: true, force: true });
 }
 
-// 2) STORE=1 构建
+// 2) STORE=1 构建（默认注入生产域名；可覆盖 .env.production 或环境变量）
+const buildEnv = { ...process.env, STORE: '1', NODE_ENV: 'production' };
+const envProductionPath = join(root, '.env.production');
+if (existsSync(envProductionPath)) {
+  for (const line of readFileSync(envProductionPath, 'utf-8').split('\n')) {
+    const t = line.trim();
+    if (!t || t.startsWith('#') || !t.includes('=')) continue;
+    const idx = t.indexOf('=');
+    buildEnv[t.slice(0, idx).trim()] = t.slice(idx + 1).trim();
+  }
+  log('已加载 .env.production');
+}
+if (!buildEnv.VITE_PLATFORM_SITE_URL?.trim()) {
+  buildEnv.VITE_PLATFORM_SITE_URL = PRODUCTION_SITE_URL;
+  log(`VITE_PLATFORM_SITE_URL=${PRODUCTION_SITE_URL}`);
+}
+if (!buildEnv.VITE_PLATFORM_API_URL?.trim()) {
+  buildEnv.VITE_PLATFORM_API_URL = PRODUCTION_API_URL;
+  log(`VITE_PLATFORM_API_URL=${PRODUCTION_API_URL}`);
+}
 log(`生产构建（STORE=1，npm run build） ... v${pkg.version}`);
 execSync('npm run build', {
   stdio: 'inherit',
-  env: { ...process.env, STORE: '1', NODE_ENV: 'production' },
+  env: buildEnv,
 });
 
 if (!existsSync(distDir)) fatal('构建失败：dist/ 不存在');
+
+const allowPlaceholderDomain = process.argv.includes('--allow-placeholder-domain');
 
 // 3) 上架合规校验
 log('合规校验 dist/ 内容 ...');
@@ -85,11 +112,21 @@ for (const f of allFiles) {
 const manifestPath = join(distDir, 'manifest.json');
 if (!existsSync(manifestPath)) violations.push('缺少 manifest.json');
 else {
-  const m = JSON.parse(readFileSync(manifestPath, 'utf-8'));
+  const manifestRaw = readFileSync(manifestPath, 'utf-8');
+  const m = JSON.parse(manifestRaw);
   if (m.manifest_version !== 3)
     violations.push(`manifest_version 必须为 3，当前 ${m.manifest_version}`);
   if (m.version !== pkg.version)
     violations.push(`manifest.version (${m.version}) 与 package.json (${pkg.version}) 不一致`);
+  if (manifestRaw.includes(DOMAIN_PLACEHOLDER)) {
+    if (allowPlaceholderDomain) {
+      log(`⚠ manifest 仍含占位域名 ${DOMAIN_PLACEHOLDER}（已用 --allow-placeholder-domain 跳过）`);
+    } else {
+      violations.push(
+        `manifest 仍含占位域名 ${DOMAIN_PLACEHOLDER}：正式上架前须替换为真实域名后重新 build（见 store-listing/CHECKLIST.md §0）`,
+      );
+    }
+  }
   for (const ic of [16, 32, 48, 128]) {
     const ip = join(distDir, 'icons', `icon-${ic}.png`);
     if (!existsSync(ip)) violations.push(`缺少图标：icons/icon-${ic}.png`);
@@ -99,6 +136,8 @@ else {
 if (violations.length) {
   console.error('\n[release-store] 发现以下上架合规问题：');
   for (const v of violations) console.error('  -', v);
+  const srcHits = findDomainPlaceholderHits(root);
+  if (srcHits.length) console.error(formatLaunchDomainReminder(srcHits));
   fatal('请先修复上述问题再发版。');
 }
 log(`✓ 共 ${allFiles.length} 个文件，全部通过合规校验`);
@@ -143,6 +182,5 @@ console.log('  1) 打开 https://chrome.google.com/webstore/devconsole');
 console.log('  2) 「新增项目」上传上面的 zip');
 console.log('  3) 把 store-listing/ 下的中英文文案复制粘贴到对应表单字段');
 console.log('  4) 上传 store-assets/ 下的宣传图与截图');
-console.log('  5) 隐私政策 URL 填：');
-console.log('     https://github.com/xiaotao-02/prompt-hub');
+console.log('  5) 隐私政策 URL 填官网 /privacy（须为已部署的真实域名，勿用占位域）');
 console.log('==================================');

@@ -9,12 +9,11 @@ import { removePromptVersion, restorePromptVersion } from '@/lib/storage';
 import { CopyFeedbackLabel, cx } from '@/components/ui';
 import { useVersionsListDensity } from '@/hooks/useVersionsListDensity';
 import { POPUP_DENSITY_KEY, previewMaxLen } from '@/lib/versionsListDensity';
+import { POPUP_VERSIONS_LIST_MAX_CLASS } from './popupShell';
 import { versionListPreviewText, versionListReferencePrompt } from '@/lib/versionPreview';
 
 /** ≤6 条全部展示；>6 条默认只展示前 6 条，可展开其余 */
 const VERSION_UI_FULL_THRESHOLD = 6;
-const VERSIONS_LIST_SCROLLBAR =
-  'scrollbar-thin scrollbar-track-zinc-200/80 dark:scrollbar-track-zinc-800/80 scrollbar-thumb-zinc-400/70 dark:scrollbar-thumb-zinc-600/80 hover:scrollbar-thumb-violet-500/35';
 
 const ORD_TAG_CLASS: Record<VersionOrdinalKind, string> = {
   current: 'bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300',
@@ -149,12 +148,7 @@ export function PopupVersionsInline({
         </div>
       )}
 
-      <ul
-        className={cx(
-          'p-2 space-y-1.5 max-h-[min(320px,50vh)] overflow-y-auto',
-          VERSIONS_LIST_SCROLLBAR,
-        )}
-      >
+      <ul className={cx(POPUP_VERSIONS_LIST_MAX_CLASS)}>
         {visibleVersions.map((v, idx) => {
           const isCurrent = versions[0]?.id === v.id;
           const isFirst = idx === 0;

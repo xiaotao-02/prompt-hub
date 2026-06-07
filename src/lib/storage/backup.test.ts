@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { AppSettings, HistoryItem } from '../types';
-import { parseBackupPayload } from './backup';
+import { dedupeForRestore, parseBackupPayload } from './backup';
 import { migrateItem } from './history';
 
 const minimalSettings = { x: 1 } as unknown as AppSettings;
@@ -48,13 +48,55 @@ describe('parseBackupPayload', () => {
     expect(() => parseBackupPayload({ history: [] })).toThrow(/settings/);
   });
 
-  it('throws when history is not an array', () => {
+  it('throws when history entry is invalid', () => {
     expect(() =>
       parseBackupPayload({
         settings: minimalSettings,
-        history: {},
+        history: [{ id: '', prompt: 1 }],
       }),
-    ).toThrow(/history/);
+    ).toThrow(/history\[0\]/);
+  });
+});
+
+describe('dedupeForRestore', () => {
+  const base = (id: string, imageUrl: string, createdAt: number): HistoryItem => ({
+    id,
+    imageUrl,
+    thumbnail: imageUrl,
+    prompt: `prompt-${id}`,
+    provider: 'openai',
+    model: 'gpt-4o',
+    style: 'natural-zh',
+    pageUrl: '',
+    pageTitle: '',
+    createdAt,
+    versions: [
+      {
+        id: `${id}:v0`,
+        prompt: `prompt-${id}`,
+        versionNo: 0,
+        createdAt,
+        source: 'extracted',
+      },
+    ],
+  });
+
+  it('merges duplicate imageUrl entries and keeps newer winner', () => {
+    const url = 'https://example.com/same-image.jpg';
+    const list = [base('a', url, 100), base('b', url, 200)];
+    const out = dedupeForRestore(list.map(migrateItem));
+    expect(out).toHaveLength(1);
+    expect(out[0].id).toBe('b');
+    expect(out[0].versions).toHaveLength(2);
+  });
+
+  it('does not merge entries without shared natural dedupe key', () => {
+    const list = [
+      base('a', 'https://example.com/a.jpg', 100),
+      base('b', 'https://example.com/b.jpg', 200),
+    ];
+    const out = dedupeForRestore(list.map(migrateItem));
+    expect(out).toHaveLength(2);
   });
 });
 

@@ -3,7 +3,14 @@ import type { SyncMeta } from '@/lib/fsBackup';
 
 export interface DataPersistenceProps {
   onDataRestored?: () => void;
-  variant?: 'card' | 'plain';
+}
+
+export type DataConfirmKind = 'restore-directory' | 'disconnect-directory' | 'import-json';
+
+export interface DataConfirmState {
+  kind: DataConfirmKind;
+  /** import-json 时携带待导入文件 */
+  file?: File;
 }
 
 export interface PendingExistingDecision {

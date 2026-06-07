@@ -45,33 +45,3 @@ export const PROJECT_COLORS: { id: string; label: string; dot: string; ring: str
 export function getProjectColor(id?: string) {
   return PROJECT_COLORS.find((c) => c.id === id) || PROJECT_COLORS[0];
 }
-
-/** 提示词库卡片 provider 品牌色圆点（仅 UI 装饰）。 */
-const PROVIDER_ACCENTS: Record<string, string> = {
-  platform: 'bg-violet-500',
-  openai: 'bg-emerald-500',
-  anthropic: 'bg-amber-500',
-  gemini: 'bg-sky-500',
-  zhipu: 'bg-indigo-500',
-  qwen: 'bg-orange-500',
-  siliconflow: 'bg-cyan-500',
-  deepseek: 'bg-blue-500',
-  moonshot: 'bg-violet-500',
-  doubao: 'bg-rose-500',
-  stepfun: 'bg-teal-500',
-  minimax: 'bg-fuchsia-500',
-  yi: 'bg-lime-500',
-  baidu: 'bg-blue-600',
-  openrouter: 'bg-indigo-400',
-  xai: 'bg-zinc-300',
-  mistral: 'bg-orange-400',
-  groq: 'bg-emerald-400',
-  together: 'bg-sky-400',
-  fireworks: 'bg-amber-400',
-  shukelongda: 'bg-violet-400',
-  custom: 'bg-zinc-400',
-};
-
-export function getProviderAccent(provider?: string) {
-  return PROVIDER_ACCENTS[provider ?? ''] ?? 'bg-zinc-400';
-}

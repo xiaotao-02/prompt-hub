@@ -14,7 +14,9 @@ import {
 } from './reducerHandlers/refine';
 import {
   applyUiLoadVersion,
+  applyUiModel,
   applyUiOneClickRefineRandomness,
+  applyUiOutputStyle,
   applyUiSelectVersionId,
   applyUiSetDraft,
   applyUiStrategy,
@@ -42,6 +44,10 @@ export function panelReducer(state: PanelState | null, event: PanelEvent): Panel
       return applyExtractError(state, event.streamRequestId, event.error);
     case 'ui.strategy':
       return applyUiStrategy(state, event.strategy);
+    case 'ui.model':
+      return applyUiModel(state, event.model, event.provider);
+    case 'ui.outputStyle':
+      return applyUiOutputStyle(state, event.outputStyle);
     case 'ui.oneClickRefineRandomness':
       return applyUiOneClickRefineRandomness(state, event.level);
     case 'ui.toggleVersionsOpen':

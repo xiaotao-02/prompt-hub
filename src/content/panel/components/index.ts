@@ -3,6 +3,8 @@ export { ReferenceStrip } from './ReferenceStrip';
 export type { ReferenceStripProps } from './ReferenceStrip';
 export { StrategyDropdown } from './StrategyDropdown';
 export type { StrategyDropdownProps } from './StrategyDropdown';
+export { OutputStyleDropdown } from './OutputStyleDropdown';
+export type { OutputStyleDropdownProps } from './OutputStyleDropdown';
 export { OneClickRefineRandomnessDropdown } from './OneClickRefineRandomnessDropdown';
 export type { OneClickRefineRandomnessDropdownProps } from './OneClickRefineRandomnessDropdown';
 export { PromptEditor } from './PromptEditor';

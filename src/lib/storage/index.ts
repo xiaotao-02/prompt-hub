@@ -46,6 +46,7 @@ export {
   applyUserStrategyPresetToSettings,
   briefUserPresetFingerprint,
   isSettingsMatchingUserPreset,
+  findMatchingUserPreset,
   addUserStrategyPreset,
   removeUserStrategyPreset,
   updateUserStrategyPresetName,

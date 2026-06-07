@@ -33,6 +33,8 @@
  * 不需要去 4 个文件改 5 处再担心漏改一个就静默走默认值。
  */
 
+import type { OutputStyle } from './types';
+
 // ============================================================
 // 1. 组件版本号 type（纯字面量类型，零运行时）
 // ============================================================
@@ -242,3 +244,37 @@ export const DEFAULT_STRATEGY_ID: StrategyId = 'v036';
 export const STRATEGY_LABELS: Record<StrategyId, string> = Object.fromEntries(
   (Object.keys(STRATEGIES) as StrategyId[]).map((id) => [id, STRATEGIES[id].label]),
 ) as Record<StrategyId, string>;
+
+// ============================================================
+// OutputStyle 轻量元信息（content script 可安全 import）
+// ============================================================
+
+/** 新装用户与未知/无效 outputStyle 的回退档。 */
+export const DEFAULT_OUTPUT_STYLE: OutputStyle = 'natural-zh';
+
+/** UI 下拉与 badge 使用的展示顺序。 */
+export const OUTPUT_STYLE_ORDER: OutputStyle[] = ['natural-zh', 'natural-en', 'natural-ja', 'json'];
+
+export const OUTPUT_STYLE_LABELS: Record<OutputStyle, string> = {
+  'natural-zh': '自然语言（中文）',
+  'natural-en': 'Natural (English)',
+  'natural-ja': '自然言語（日本語）',
+  json: 'JSON（英文）',
+};
+
+/** 设置页 ChoiceCard 用的简短说明。 */
+export const OUTPUT_STYLE_DESCRIPTIONS: Record<OutputStyle, string> = {
+  'natural-zh': '段落式中文描述，适合通用 AI 绘图',
+  'natural-en': '英文段落式描述，适合 Flux/SDXL 等',
+  'natural-ja': '日语段落式描述',
+  json: '英文结构化 JSON，适合 Nano Banana / 结构化工作流',
+};
+
+export function isOutputStyle(value: unknown): value is OutputStyle {
+  return typeof value === 'string' && value in OUTPUT_STYLE_LABELS;
+}
+
+export function outputStyleLabel(style: OutputStyle | string | undefined): string {
+  if (!style) return '';
+  return OUTPUT_STYLE_LABELS[style as OutputStyle] ?? style;
+}

@@ -12,6 +12,8 @@ describe('uiTokens', () => {
     expect(css).toContain('--pe-accent: #6d28d9;');
     expect(css).toContain('--pe-success: #059669;');
     expect(css).toContain('--pe-collapse-duration: 220ms;');
+    expect(css).toContain('--pe-duration-base: 180ms;');
+    expect(css).toContain('--pe-ease-standard: cubic-bezier(0.2, 0, 0, 1);');
     expect(css).toContain('@media (prefers-color-scheme: dark)');
     expect(css).toContain('--pe-accent: #a78bfa;');
   });
@@ -19,5 +21,8 @@ describe('uiTokens', () => {
   it('shares motion tokens with globals.css contract', () => {
     expect(UI_MOTION.radius).toBe('8px');
     expect(UI_MOTION.collapseEase).toBe('cubic-bezier(0.2, 0.9, 0.3, 1.2)');
+    expect(UI_MOTION.durationFast).toBe('120ms');
+    expect(UI_MOTION.durationBase).toBe('180ms');
+    expect(UI_MOTION.easeSpring).toBe(UI_MOTION.collapseEase);
   });
 });

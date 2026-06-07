@@ -103,21 +103,47 @@ function Show-LogTail([string]$LogPath, [int]$Lines = 40) {
   Write-Host '---'
 }
 
+function Test-HttpReady([string]$Url, [int]$TimeoutSec = 5) {
+  try {
+    $response = Invoke-WebRequest -Uri $Url -UseBasicParsing -TimeoutSec $TimeoutSec
+    return ($response.StatusCode -ge 200 -and $response.StatusCode -lt 500)
+  } catch {
+    return $false
+  }
+}
+
 function Wait-HttpReady([string]$Url, [int]$TimeoutSec, [string]$Name, [string]$LogPath) {
   $deadline = (Get-Date).AddSeconds($TimeoutSec)
   while ((Get-Date) -lt $deadline) {
-    try {
-      $response = Invoke-WebRequest -Uri $Url -UseBasicParsing -TimeoutSec 3
-      if ($response.StatusCode -ge 200 -and $response.StatusCode -lt 500) {
-        return $true
-      }
-    } catch {
-      # still starting
+    if (Test-HttpReady $Url 3) {
+      return $true
     }
     Start-Sleep -Seconds 1
   }
   Show-LogTail -LogPath $LogPath
   throw "$Name not ready within ${TimeoutSec}s: $Url"
+}
+
+function Ensure-ConfigEncryptionKey([string]$EnvPath) {
+  if (-not (Test-Path $EnvPath)) { return $false }
+  $content = [System.IO.File]::ReadAllText($EnvPath, $Utf8NoBom)
+  if ($content -match '(?m)^CONFIG_ENCRYPTION_KEY=') {
+    if ($content -notmatch '(?m)^CONFIG_ENCRYPTION_KEY=\s*$') { return $false }
+    # empty value — generate below
+  } else {
+    $content = $content.TrimEnd() + "`r`nCONFIG_ENCRYPTION_KEY=`r`n"
+  }
+  $bytes = New-Object byte[] 32
+  [System.Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($bytes)
+  $key = [BitConverter]::ToString($bytes).Replace('-', '').ToLower()
+  if ($content -match '(?m)^CONFIG_ENCRYPTION_KEY=') {
+    $content = $content -replace '(?m)^CONFIG_ENCRYPTION_KEY=.*$', "CONFIG_ENCRYPTION_KEY=$key"
+  } else {
+    $content = $content.TrimEnd() + "`r`nCONFIG_ENCRYPTION_KEY=$key`r`n"
+  }
+  [System.IO.File]::WriteAllText($EnvPath, $content, $Utf8NoBom)
+  Write-Host "dev:previews generated CONFIG_ENCRYPTION_KEY in $EnvPath"
+  return $true
 }
 
 function Set-LocalDevEnv([string]$Dir, [hashtable]$Defaults) {
@@ -175,7 +201,30 @@ function Set-LocalDevEnv([string]$Dir, [hashtable]$Defaults) {
 
 function Ensure-NpmInstall([string]$Dir) {
   $nodeModules = Join-Path $Dir 'node_modules'
-  if (-not (Test-Path $nodeModules)) {
+  $packageJson = Join-Path $Dir 'package.json'
+  $packageLock = Join-Path $Dir 'package-lock.json'
+  $nmLock = Join-Path $nodeModules '.package-lock.json'
+
+  $needsInstall = -not (Test-Path $nodeModules)
+  if (-not $needsInstall) {
+    if (-not (Test-Path $nmLock)) {
+      $needsInstall = $true
+    } else {
+      $nmLockTime = (Get-Item $nmLock).LastWriteTimeUtc
+      if (Test-Path $packageJson) {
+        if ((Get-Item $packageJson).LastWriteTimeUtc -gt $nmLockTime) {
+          $needsInstall = $true
+        }
+      }
+      if (-not $needsInstall -and (Test-Path $packageLock)) {
+        if ((Get-Item $packageLock).LastWriteTimeUtc -gt $nmLockTime) {
+          $needsInstall = $true
+        }
+      }
+    }
+  }
+
+  if ($needsInstall) {
     Write-Host "dev:previews npm install in $Dir"
     Push-Location $Dir
     try {
@@ -227,11 +276,19 @@ $websiteEnvChanged = Set-LocalDevEnv (Join-Path $RepoRoot 'website') @{
   'NEXT_PUBLIC_PRICING_ENABLED'  = 'true'
 }
 $apiEnvChanged = Set-LocalDevEnv (Join-Path $RepoRoot 'services/api') @{
-  'MOCK_PAY_ENABLED' = 'true'
-  'SITE_URL'         = 'http://localhost:4321'
-  'API_PUBLIC_URL'   = 'http://localhost:8787'
-  'CORS_ORIGIN'      = 'http://localhost:4321,http://localhost:5173,https://github.com/xiaotao-02/prompt-hub'
-  'EMAIL_DEV_LOG'    = 'true'
+  'MOCK_PAY_ENABLED'  = 'true'
+  'SITE_URL'          = 'http://localhost:4321'
+  'API_PUBLIC_URL'    = 'http://localhost:8787'
+  'CORS_ORIGIN'       = 'http://localhost:4321,http://localhost:5173,https://github.com/xiaotao-02/prompt-hub'
+  'EMAIL_DEV_LOG'     = 'true'
+  'ADMIN_EMAILS'      = 'dev@local.test'
+  'DEV_LOGIN_ENABLED' = 'true'
+  'YUNGOUOS_ENABLED'  = 'false'
+  'ZPAY_ENABLED'      = 'false'
+}
+$apiEnvPath = Join-Path $RepoRoot 'services/api/.env'
+if (Ensure-ConfigEncryptionKey $apiEnvPath) {
+  $apiEnvChanged = $true
 }
 $extensionEnv = @{
   DEV_PREVIEW_NO_OPEN       = '1'
@@ -276,8 +333,15 @@ $services = @(
 foreach ($svc in $services) {
   $envChanged = $envChangedByService[$svc.Name]
   if (Test-PortOpen $svc.Port) {
-    if ($envChanged) {
-      Write-Host "dev:previews env updated, restarting $($svc.Name) on port $($svc.Port)"
+    $needsRestart = $envChanged
+    if (-not $needsRestart -and -not (Test-HttpReady $svc.Url 5)) {
+      Write-Host "dev:previews port $($svc.Port) unhealthy (no HTTP), restarting $($svc.Name)"
+      $needsRestart = $true
+    }
+    if ($needsRestart) {
+      if ($envChanged) {
+        Write-Host "dev:previews env updated, restarting $($svc.Name) on port $($svc.Port)"
+      }
       Stop-PortProcess $svc.Port
       Stop-DevProcesses -WorkingDirectory $svc.Dir -ServiceName $svc.Name
       $null = Start-DevService -Name $svc.Name -WorkingDirectory $svc.Dir -Environment $svc.Env

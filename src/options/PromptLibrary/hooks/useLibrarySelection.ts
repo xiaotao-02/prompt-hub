@@ -35,7 +35,6 @@ export type UseLibrarySelectionDeps = {
   setKeyword: (value: string) => void;
   setFilterProvider: (value: string) => void;
   setFilterStyle: (value: string) => void;
-  setShowPinnedOnly: (value: boolean) => void;
   setSelectedNode: (node: SelectedNodeId) => void;
 };
 
@@ -58,7 +57,6 @@ export function useLibrarySelection({
   setKeyword,
   setFilterProvider,
   setFilterStyle,
-  setShowPinnedOnly,
   setSelectedNode,
 }: UseLibrarySelectionDeps) {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -110,7 +108,6 @@ export function useLibrarySelection({
     setKeyword('');
     setFilterProvider('all');
     setFilterStyle('all');
-    setShowPinnedOnly(false);
     setSelectedNode(SYSTEM_NODE.ALL);
     const t = window.setTimeout(() => {
       const el = document.querySelector<HTMLElement>(`[data-history-id="${focusId}"]`);
@@ -134,7 +131,6 @@ export function useLibrarySelection({
     setKeyword,
     setFilterProvider,
     setFilterStyle,
-    setShowPinnedOnly,
     setSelectedNode,
     openInPanel,
   ]);

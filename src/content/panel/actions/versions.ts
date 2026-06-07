@@ -51,30 +51,8 @@ export const handleToggleVersions: DataActionHandler = () => {
   if (!nextState) return;
   const next = !!nextState.versionsOpen;
 
-  const p = panel;
-  if (p) {
-    p.classList.add('sidebar-transition');
-    void p.offsetWidth;
-    if (next) expandPanelForSidebar();
-    else collapsePanelForSidebar();
-
-    let cleaned = false;
-    const cleanup = () => {
-      if (cleaned) return;
-      cleaned = true;
-      p.classList.remove('sidebar-transition');
-      p.removeEventListener('transitionend', onTransitionEnd);
-      window.clearTimeout(fallbackTimer);
-    };
-    const onTransitionEnd = (e: TransitionEvent) => {
-      if (e.target !== p) return;
-      if (e.propertyName === 'width' || e.propertyName === 'left') {
-        cleanup();
-      }
-    };
-    p.addEventListener('transitionend', onTransitionEnd);
-    const fallbackTimer = window.setTimeout(cleanup, 320);
-  }
+  if (next) expandPanelForSidebar();
+  else collapsePanelForSidebar();
 
   renderPanelFromState(nextState);
 };

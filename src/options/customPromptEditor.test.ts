@@ -2,66 +2,67 @@ import { describe, expect, it } from 'vitest';
 import type { AppSettings } from '@/lib/types';
 import {
   applyPromptStrategyChange,
-  detectCustomPromptMode,
-  migrateSettingsForBuiltinStrategy,
-  switchCustomPromptMode,
-  writeCustomPromptText,
+  briefCustomPromptSummary,
+  readReplaceInstruction,
+  writeReplaceInstruction,
 } from './customPromptEditor';
 
 const base = {
-  customPromptTemplate: '追加文案',
-  customInstruction: undefined,
+  customPromptTemplate: '旧追加文案',
   promptStrategy: 'v036',
-} as Pick<AppSettings, 'customPromptTemplate' | 'customInstruction' | 'promptStrategy'>;
+} as Pick<AppSettings, 'customPromptTemplate' | 'promptStrategy'>;
 
 describe('customPromptEditor', () => {
-  it('infers replace when customInstruction is set', () => {
-    expect(
-      detectCustomPromptMode({
-        ...base,
-        customInstruction: '整段替换',
-      } as AppSettings),
-    ).toBe('replace');
-  });
-
-  it('writeText is mutually exclusive', () => {
-    const appended = writeCustomPromptText(base as AppSettings, 'append', '仅追加');
-    expect(appended.customPromptTemplate).toBe('仅追加');
-    expect(appended.customInstruction).toBeUndefined();
-
-    const replaced = writeCustomPromptText(base as AppSettings, 'replace', '仅替换');
-    expect(replaced.customInstruction).toBe('仅替换');
-    expect(replaced.customPromptTemplate).toBe('');
-  });
-
-  it('switchCustomPromptMode moves text between fields', () => {
-    const s = { ...base, customPromptTemplate: '氛围描写' } as AppSettings;
-    const next = switchCustomPromptMode(s, 'append', 'replace');
-    expect(next.customInstruction).toBe('氛围描写');
-    expect(next.customPromptTemplate).toBe('');
-  });
-
-  it('migrateSettingsForBuiltinStrategy merges replace into append', () => {
-    const s = {
+  it('readReplaceInstruction returns per-strategy override', () => {
+    expect(readReplaceInstruction(base as AppSettings)).toBe('');
+    const withOv = {
       ...base,
-      promptStrategy: 'classic',
-      customInstruction: '自写指令',
-      customPromptTemplate: '已有追加',
+      strategyOverrides: { v036: { instruction: '整段替换' } },
     } as AppSettings;
-    const m = migrateSettingsForBuiltinStrategy(s);
-    expect(m.customInstruction).toBeUndefined();
-    expect(m.customPromptTemplate).toBe('已有追加\n\n自写指令');
+    expect(readReplaceInstruction(withOv)).toBe('整段替换');
   });
 
-  it('applyPromptStrategyChange migrates when leaving custom', () => {
+  it('readReplaceInstruction falls back to legacy customInstruction on active strategy', () => {
+    expect(readReplaceInstruction({ ...base, customInstruction: '旧全局' } as AppSettings)).toBe(
+      '旧全局',
+    );
+  });
+
+  it('writeReplaceInstruction stores in strategyOverrides and clears customPromptTemplate', () => {
+    const next = writeReplaceInstruction(base as AppSettings, '仅替换');
+    expect(next.strategyOverrides?.v036?.instruction).toBe('仅替换');
+    expect(next.customPromptTemplate).toBe('');
+    expect(next.customInstruction).toBeUndefined();
+
+    const cleared = writeReplaceInstruction(
+      {
+        ...base,
+        strategyOverrides: { v036: { instruction: 'x', temperature: 0.3 } },
+      } as AppSettings,
+      '   ',
+    );
+    expect(cleared.strategyOverrides?.v036?.instruction).toBeUndefined();
+    expect(cleared.strategyOverrides?.v036?.temperature).toBe(0.3);
+  });
+
+  it('briefCustomPromptSummary only for replace text', () => {
+    expect(briefCustomPromptSummary(base as AppSettings)).toBeNull();
+    expect(
+      briefCustomPromptSummary({
+        ...base,
+        strategyOverrides: { v036: { instruction: 'abc' } },
+      } as AppSettings),
+    ).toBe('替换指令 · 3 字');
+  });
+
+  it('applyPromptStrategyChange only switches promptStrategy', () => {
     const s = {
       ...base,
       promptStrategy: 'custom',
-      customInstruction: '替换正文',
+      strategyOverrides: { custom: { instruction: '替换正文' } },
     } as AppSettings;
     const m = applyPromptStrategyChange(s, 'classic');
     expect(m.promptStrategy).toBe('classic');
-    expect(m.customInstruction).toBeUndefined();
-    expect(m.customPromptTemplate).toContain('替换正文');
+    expect(m.strategyOverrides?.custom?.instruction).toBe('替换正文');
   });
 });

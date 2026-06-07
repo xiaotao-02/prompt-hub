@@ -33,6 +33,50 @@ export interface ProviderVisionDisplay {
   source: 'discovered' | 'static' | 'mixed';
 }
 
+/** platform 公开 id「上游ID/模型名」→ 短模型名（遗留格式兼容） */
+export function platformModelDisplayName(modelId: string): string {
+  const slash = modelId.indexOf('/');
+  return slash > 0 ? modelId.slice(slash + 1) : modelId;
+}
+
+/** 将遗留「厂商ID/模型名」迁移为短模型名 */
+export function migratePlatformModelId(modelId: string | undefined): string | undefined {
+  if (!modelId?.trim()) return modelId;
+  return platformModelDisplayName(modelId.trim());
+}
+
+const VISION_RANK: Record<ModelVisionSupport, number> = {
+  vision: 2,
+  unknown: 1,
+  no_vision: 0,
+};
+
+/** 合并拉取/缓存中的 platform 模型列表：短名去重，识图标注取最优 */
+export function dedupePlatformDiscoveredModels(
+  models: string[],
+  visionById: Record<string, ModelVisionSupport> = {},
+): { models: string[]; visionById: Record<string, ModelVisionSupport> } {
+  const order: string[] = [];
+  const seen = new Set<string>();
+  const mergedVision: Record<string, ModelVisionSupport> = {};
+
+  for (const raw of models) {
+    const id = platformModelDisplayName(raw);
+    if (!id) continue;
+    const support = visionById[raw] ?? visionById[id];
+    const prev = mergedVision[id];
+    if (!seen.has(id)) {
+      seen.add(id);
+      order.push(id);
+      if (support) mergedVision[id] = support;
+    } else if (support && (!prev || VISION_RANK[support] > VISION_RANK[prev])) {
+      mergedVision[id] = support;
+    }
+  }
+
+  return { models: order, visionById: mergedVision };
+}
+
 function matchesAny(id: string, patterns: RegExp[]): boolean {
   return patterns.some((p) => p.test(id));
 }

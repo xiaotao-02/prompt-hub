@@ -1,29 +1,50 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  Settings,
-  Sparkles,
   Trash2,
   Pencil,
-  X,
   Wand2,
   PanelTopOpen,
   ChevronDown,
   ChevronRight,
   Crop,
   ExternalLink,
+  ImageIcon,
+  WandSparkles,
 } from 'lucide-react';
+import { EmptyGuide } from '@/components/EmptyGuide';
 import { LIBRARY_REV_KEY, listRecentHistory, removeHistory, getSettings } from '@/lib/storage';
 import { SETTINGS_KEY } from '@/lib/storage/keys';
 import type { HistoryItem } from '@/lib/types';
 import { formatTime } from '@/lib/format/time';
 import { sendOpenInPanel, sendOpenOptions } from '@/lib/messaging/openSurfaces';
-import { UI_ACTION, UI_EMPTY, UI_NAV } from '@/lib/uiCopy';
-import { Button, Collapsible, CopyFeedbackLabel, StatusBanner, cx } from '@/components/ui';
+import { UI_ACTION, UI_NAV } from '@/lib/uiCopy';
+import { Button, Collapsible, CopyFeedbackLabel, DismissibleBanner, cx } from '@/components/ui';
 import { useCopyFeedback } from '@/hooks/useCopyFeedback';
 import { PopupVersionsInline } from './PopupVersionsInline';
 import { usePopupVersionsDetail } from './usePopupVersionsDetail';
-import ProviderQuotaBadge from '@/components/ProviderQuotaBadge';
-import type { ProviderId } from '@/lib/types';
+import PopupServiceCard from './PopupServiceCard';
+import PopupServiceMenu from './PopupServiceMenu';
+import { usePopupService } from './servicePanes/usePopupService';
+import { POPUP_EMPTY_MIN_CLASS, POPUP_ROOT_CLASS, POPUP_SCROLL_CLASS } from './popupShell';
+
+const POPUP_STEPS = [
+  { icon: ImageIcon, text: '在网页图片上右键，选择「提取图片提示词」' },
+  { icon: Crop, text: `或使用顶部「${UI_NAV.regionCapture}」框选区域` },
+] as const;
+
+/** 内嵌配置卡片下方的紧凑空状态（约 2 行） */
+function PopupCompactEmptyHint() {
+  return (
+    <div className="px-3 py-2 border-t border-zinc-200/60 dark:border-zinc-800/80 text-center">
+      <p className="text-[12px] font-medium leading-tight text-zinc-700 dark:text-zinc-300">
+        暂无历史记录
+      </p>
+      <p className="mt-0.5 text-[11px] leading-snug text-zinc-500 dark:text-zinc-400 line-clamp-2">
+        右键图片「提取图片提示词」，或使用顶部「{UI_NAV.regionCapture}」
+      </p>
+    </div>
+  );
+}
 
 type OpenLibraryDock = 'refine' | 'versions';
 
@@ -62,22 +83,58 @@ function sendRecallToPanel(
   });
 }
 
-export default function PopupApp() {
+export type PopupAppProps = {
+  /** 开发预览：URL `#expand=` 指定条目 id，历史加载后自动展开内联版本。 */
+  initialVersionsExpandedId?: string | null;
+};
+
+export default function PopupApp({ initialVersionsExpandedId = null }: PopupAppProps) {
   const [list, setList] = useState<HistoryItem[]>([]);
+  const [historyLoaded, setHistoryLoaded] = useState(false);
   const [toolbarPromptTarget, setToolbarPromptTarget] = useState<'library' | 'panel'>('library');
   const [recallTip, setRecallTip] = useState<string | null>(null);
   /** 区域截图入口错误提示（成功时直接关 popup） */
   const [regionSnipTip, setRegionSnipTip] = useState<string | null>(null);
+  const service = usePopupService();
   const { copiedKey, onCopy } = useCopyFeedback();
-  const [activeProviderId, setActiveProviderId] = useState<ProviderId>('openai');
-  const load = useCallback(() => listRecentHistory(80).then(setList), []);
+  /** 未配置服务卡片显隐锁存：输入过程中不因 isConfigured 抖动而卸载 */
+  const [serviceCardOpen, setServiceCardOpen] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    if (service.settings && serviceCardOpen === null) {
+      setServiceCardOpen(!service.isConfigured);
+    }
+  }, [service.settings, service.isConfigured, serviceCardOpen]);
+
+  /** 显隐由 serviceCardOpen 锁存；仅「保存配置」/ 内置登录成功时置 false，输入 Key 不因 isConfigured 卸载 */
+  const showServiceCard = historyLoaded && list.length === 0 && (serviceCardOpen ?? false);
+
+  /** 历史未加载或首配锁存未定时先不显示顶部菜单，避免闪一下再切内嵌卡片 */
+  const awaitingInlineServiceCard =
+    !historyLoaded || (list.length === 0 && serviceCardOpen === null);
+
+  const showServiceMenu =
+    Boolean(service.settings) && !showServiceCard && !awaitingInlineServiceCard;
+
+  const load = useCallback(
+    () =>
+      listRecentHistory(80).then((items) => {
+        setList(items);
+        setHistoryLoaded(true);
+      }),
+    [],
+  );
   const {
     versionsExpandedId,
     versionsDetailItem,
     toggleVersionsPanel,
     refreshVersionsDetailAfterMutation,
     collapseVersionsForItem,
-  } = usePopupVersionsDetail(load);
+  } = usePopupVersionsDetail(load, {
+    initialExpandedId: initialVersionsExpandedId,
+    list,
+    historyLoaded,
+  });
   const cardRefs = useRef<Map<string, HTMLLIElement>>(new Map());
 
   useEffect(() => {
@@ -93,18 +150,18 @@ export default function PopupApp() {
   useEffect(() => {
     void getSettings().then((s) => {
       setToolbarPromptTarget(s.popupToolbarPromptAction ?? 'library');
-      setActiveProviderId(s.activeProvider);
-    });  }, []);
+    });
+  }, []);
 
   useEffect(() => {
     const onStorage = (
       changes: { [key: string]: chrome.storage.StorageChange },
       area: chrome.storage.AreaName,
     ) => {
-      if (area === 'local' && LIBRARY_REV_KEY in changes) load();      if (area === 'sync' && SETTINGS_KEY in changes) {
+      if (area === 'local' && LIBRARY_REV_KEY in changes) load();
+      if (area === 'sync' && SETTINGS_KEY in changes) {
         void getSettings().then((s) => {
           setToolbarPromptTarget(s.popupToolbarPromptAction ?? 'library');
-          setActiveProviderId(s.activeProvider);
         });
       }
     };
@@ -132,10 +189,6 @@ export default function PopupApp() {
     sendOpenOptions({ tab: 'library' }, () => void chrome.runtime.lastError);
   };
 
-  const openOptionsSettingsTab = () => {
-    sendOpenOptions({ tab: 'settings' }, () => void chrome.runtime.lastError);
-  };
-
   const recallToPanel = (item: HistoryItem) => sendRecallToPanel(item, setRecallTip);
 
   const requestRegionCapture = () => {
@@ -157,7 +210,7 @@ export default function PopupApp() {
   };
 
   return (
-    <div className="flex flex-col">
+    <div data-popup-root="" className={cx(POPUP_ROOT_CLASS, 'ui-fade-in')}>
       <header className="flex items-center justify-between gap-2 px-3 py-2.5 border-b border-zinc-200/90 dark:border-zinc-800 bg-white/85 dark:bg-zinc-950/60 backdrop-blur-sm">
         <div className="flex items-center gap-2.5 min-w-0">
           <img
@@ -170,7 +223,7 @@ export default function PopupApp() {
           </div>
         </div>
         <div className="flex items-center gap-1.5 flex-none justify-end">
-          <ProviderQuotaBadge providerId={activeProviderId} compact className="mr-0.5" />
+          {showServiceMenu && <PopupServiceMenu {...service} />}
           <Button
             onClick={requestRegionCapture}
             title={UI_NAV.regionCaptureTitle}
@@ -205,39 +258,27 @@ export default function PopupApp() {
         </div>
       </header>
 
-      {recallTip && (
-        <StatusBanner tone="danger" className="rounded-none border-x-0 border-t-0 px-3 py-2">
-          <div className="flex items-start gap-2">
-            <span className="flex-1">{recallTip}</span>
-            <button
-              onClick={() => setRecallTip(null)}
-              className="p-0.5 rounded hover:bg-rose-100 dark:hover:bg-rose-500/20"
-            >
-              <X className="w-3 h-3" />
-            </button>
-          </div>
-        </StatusBanner>
+      {showServiceCard && (
+        <>
+          <PopupServiceCard {...service} onSaved={() => setServiceCardOpen(false)} />
+          <PopupCompactEmptyHint />
+        </>
       )}
 
-      {regionSnipTip && (
-        <StatusBanner tone="warning" className="rounded-none border-x-0 border-t-0 px-3 py-2">
-          <div className="flex items-start gap-2">
-            <span className="flex-1">{regionSnipTip}</span>
-            <button
-              type="button"
-              onClick={() => setRegionSnipTip(null)}
-              className="p-0.5 rounded hover:bg-amber-100 dark:hover:bg-amber-500/20"
-            >
-              <X className="w-3 h-3" />
-            </button>
-          </div>
-        </StatusBanner>
-      )}
+      <DismissibleBanner open={!!recallTip} tone="danger" onDismiss={() => setRecallTip(null)}>
+        {recallTip}
+      </DismissibleBanner>
 
-      <div className="bg-zinc-50/50 dark:bg-zinc-950/35">
-        {list.length === 0 ? (
-          <EmptyState onOpenLibrary={openLibrary} onOpenSettingsTab={openOptionsSettingsTab} />
-        ) : (
+      <DismissibleBanner
+        open={!!regionSnipTip}
+        tone="warning"
+        onDismiss={() => setRegionSnipTip(null)}
+      >
+        {regionSnipTip}
+      </DismissibleBanner>
+
+      <div data-popup-scroll="" className={POPUP_SCROLL_CLASS}>
+        {list.length > 0 ? (
           <ul className="px-2 py-2 space-y-2">
             {list.map((item) => {
               const versionCount = item.versions?.length || 0;
@@ -251,11 +292,11 @@ export default function PopupApp() {
                     if (el) cardRefs.current.set(item.id, el);
                     else cardRefs.current.delete(item.id);
                   }}
-                  className="rounded-lg border border-zinc-200/80 dark:border-zinc-800 bg-white/95 dark:bg-zinc-900/60 p-3 shadow-sm hover:border-zinc-300 dark:hover:border-zinc-600 transition-colors"
+                  className="rounded-lg border border-zinc-200/80 dark:border-zinc-800 bg-white/95 dark:bg-zinc-900/60 p-3 shadow-sm hover:border-zinc-300 dark:hover:border-zinc-600 ui-transition"
                 >
                   <div
                     className={cx(
-                      'flex gap-3 items-start w-full rounded-lg outline-none transition-colors',
+                      'flex gap-3 items-start w-full rounded-lg outline-none ui-transition',
                       canToggleVersions &&
                         'cursor-pointer -m-1 p-1 hover:bg-zinc-50/90 focus-visible:ring-2 focus-visible:ring-violet-500/45 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:hover:bg-zinc-800/35 dark:focus-visible:ring-offset-zinc-950',
                       canToggleVersions &&
@@ -334,47 +375,57 @@ export default function PopupApp() {
                     <div className="w-14 flex-shrink-0 pointer-events-none" aria-hidden />
                     <div className="flex-1 min-w-0 flex items-center gap-1.5">
                       <div className="grid flex-1 min-w-0 grid-cols-4 gap-1">
-                        <button
+                        <Button
                           type="button"
+                          variant="ghost"
+                          size="xs"
                           onClick={() => onCopy(item.prompt, item.id)}
-                          className="inline-flex h-7 min-w-0 items-center justify-center gap-1 rounded-md px-2 text-[11px] whitespace-nowrap text-zinc-600 transition hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                          className="min-w-0 whitespace-nowrap"
                         >
                           <CopyFeedbackLabel active={copiedKey === item.id} />
-                        </button>
-                        <button
+                        </Button>
+                        <Button
                           type="button"
+                          variant="ghost"
+                          size="xs"
                           onClick={() => runToolbarPromptMode(item, 'edit')}
                           title={UI_ACTION.editTitle}
-                          className="inline-flex h-7 min-w-0 items-center justify-center gap-1 rounded-md px-2 text-[11px] whitespace-nowrap text-zinc-600 transition hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                          className="min-w-0 whitespace-nowrap"
                         >
                           <Pencil className="w-3 h-3" /> {UI_ACTION.edit}
-                        </button>
-                        <button
+                        </Button>
+                        <Button
                           type="button"
+                          variant="ghost"
+                          size="xs"
                           onClick={() => runToolbarPromptMode(item, 'refine')}
                           title={UI_ACTION.refineTitle}
-                          className="inline-flex h-7 min-w-0 items-center justify-center gap-1 rounded-md px-2 text-[11px] whitespace-nowrap text-violet-600 transition hover:bg-violet-50 dark:text-violet-300 dark:hover:bg-violet-500/10"
+                          className="min-w-0 whitespace-nowrap text-violet-600 hover:bg-violet-50 dark:text-violet-300 dark:hover:bg-violet-500/10"
                         >
                           <Wand2 className="w-3 h-3" /> {UI_ACTION.refine}
-                        </button>
-                        <button
+                        </Button>
+                        <Button
                           type="button"
+                          variant="ghost"
+                          size="xs"
                           onClick={() => recallToPanel(item)}
-                          className="inline-flex h-7 min-w-0 items-center justify-center gap-1 rounded-md px-2 text-[11px] whitespace-nowrap text-violet-600 transition hover:bg-violet-50 dark:text-violet-300 dark:hover:bg-violet-500/10"
+                          className="min-w-0 whitespace-nowrap text-violet-600 hover:bg-violet-50 dark:text-violet-300 dark:hover:bg-violet-500/10"
                           title={UI_ACTION.recallToPanelTitle}
                         >
                           <PanelTopOpen className="w-3 h-3" /> {UI_ACTION.recallToPanel}
-                        </button>
+                        </Button>
                       </div>
-                      <button
+                      <Button
                         type="button"
+                        variant="danger"
+                        size="xs"
                         onClick={() => onDelete(item)}
-                        className="inline-flex flex-none items-center gap-1 px-2 py-1 rounded-md hover:bg-rose-50 dark:hover:bg-rose-500/10 text-zinc-400 hover:text-rose-500 text-[11px]"
+                        className="flex-none"
                         title="删除此条"
                         aria-label="删除此条记录"
                       >
                         <Trash2 className="w-3 h-3" />
-                      </button>
+                      </Button>
                     </div>
                   </div>
 
@@ -382,6 +433,7 @@ export default function PopupApp() {
                     open={versionsExpandedId === item.id}
                     id={versionsPanelId}
                     className="w-full min-w-0"
+                    animated={false}
                   >
                     {versionsDetailItem && versionsDetailItem.id === item.id ? (
                       <PopupVersionsInline
@@ -396,55 +448,17 @@ export default function PopupApp() {
               );
             })}
           </ul>
+        ) : showServiceCard ? null : (
+          <div className={POPUP_EMPTY_MIN_CLASS}>
+            <EmptyGuide
+              title="暂无历史记录"
+              description="从图片生成提示词后，会显示在这里"
+              steps={POPUP_STEPS}
+              icon={WandSparkles}
+              density="compact"
+            />
+          </div>
         )}
-      </div>
-    </div>
-  );
-}
-
-function EmptyState({
-  onOpenLibrary,
-  onOpenSettingsTab,
-}: {
-  onOpenLibrary: () => void;
-  onOpenSettingsTab: () => void;
-}) {
-  return (
-    <div className="px-6 py-10 text-center">
-      <div className="w-14 h-14 mx-auto rounded-xl bg-violet-50 dark:bg-violet-500/15 flex items-center justify-center mb-4 ring-1 ring-zinc-200/60 dark:ring-zinc-700/60">
-        <Sparkles className="w-6 h-6 text-violet-500" />
-      </div>
-      <h3 className="text-sm font-semibold mb-1 text-zinc-900 dark:text-zinc-100">
-        {UI_EMPTY.noHistoryTitle}
-      </h3>
-      <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed mb-5">
-        在任意网页上 <b>右键点击图片</b>，
-        <br />
-        选择"🎨 提取图片提示词"开始使用
-      </p>
-      <div className="flex flex-col gap-2 max-w-[280px] mx-auto">
-        <Button
-          onClick={onOpenLibrary}
-          title={UI_EMPTY.openLibraryCtaTitle}
-          aria-label={UI_EMPTY.openLibraryCtaTitle}
-          variant="primary"
-          size="sm"
-          className="w-full"
-        >
-          {UI_EMPTY.openLibraryCta}
-          <ChevronRight className="w-3.5 h-3.5 opacity-90" aria-hidden />
-        </Button>
-        <Button
-          onClick={onOpenSettingsTab}
-          title={UI_ACTION.configureApiKeyTitle}
-          aria-label={UI_ACTION.configureApiKeyTitle}
-          variant="secondary"
-          size="sm"
-          className="w-full"
-        >
-          <Settings className="w-3.5 h-3.5" aria-hidden />
-          {UI_ACTION.configureApiKey}
-        </Button>
       </div>
     </div>
   );

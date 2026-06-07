@@ -56,6 +56,10 @@ export const UI_ACTION = {
 export const UI_EMPTY = {
   noHistoryTitle: '还没有任何记录',
   noHistoryHint: '在任意网页上右键点击图片，选择「🎨 提取图片提示词」开始使用',
+  setupHint: '先配置服务：登录内置服务，或填入自备 API Key',
+  useHint: '再到任意网页右键图片，选择「🎨 提取图片提示词」',
+  setupServiceCta: '配置服务',
+  setupServiceCtaTitle: '展开内置服务登录与自定义 API 配置',
   openLibraryCta: '打开提示词库',
   openLibraryCtaTitle: '打开选项页的提示词库',
 } as const;

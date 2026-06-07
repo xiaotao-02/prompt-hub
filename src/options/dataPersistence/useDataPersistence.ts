@@ -14,7 +14,7 @@ import {
 } from '@/lib/fsBackup';
 import { buildBackup, restoreBackup } from '@/lib/storage';
 import { getCurrentVersion } from '@/lib/updater';
-import type { DataPersistenceProps, Decision } from './types';
+import type { DataConfirmState, DataPersistenceProps, Decision } from './types';
 import {
   formatReason,
   isLiveSyncMeta,
@@ -30,7 +30,7 @@ export function useDataPersistence({
   const [busy, setBusy] = useState<'pick' | 'sync' | 'restore' | 'export' | 'import' | null>(null);
   const [tip, setTip] = useState<{ ok: boolean; msg: string } | null>(null);
   const [decision, setDecision] = useState<Decision>(null);
-  const [manualBackupOpen, setManualBackupOpen] = useState(false);
+  const [confirm, setConfirm] = useState<DataConfirmState | null>(null);
   const [, bumpSyncMetaAgeTick] = useState(0);
   const shrinkDismissedRef = useRef(false);
   const importInputRef = useRef<HTMLInputElement>(null);
@@ -44,13 +44,6 @@ export function useDataPersistence({
   useEffect(() => {
     void refresh();
   }, [refresh]);
-
-  useEffect(() => {
-    if (!state) return;
-    if (!(state.supported && supportsFileSystemAccess())) {
-      setManualBackupOpen(true);
-    }
-  }, [state]);
 
   const showTip = useCallback((ok: boolean, msg: string) => {
     setTip({ ok, msg });
@@ -299,8 +292,12 @@ export function useDataPersistence({
     }
   };
 
-  const onRestoreNow = async () => {
-    if (!confirm('从数据目录的 JSON 完整恢复？\n这会覆盖当前插件里的设置 + 历史记录。')) return;
+  const onRestoreNow = () => {
+    setConfirm({ kind: 'restore-directory' });
+  };
+
+  const runRestoreFromDirectory = async () => {
+    setConfirm(null);
     setBusy('restore');
     try {
       const r = await loadFromDirectory('replace');
@@ -315,8 +312,12 @@ export function useDataPersistence({
     }
   };
 
-  const onDisconnect = async () => {
-    if (!confirm('解除当前数据目录绑定？\n（不会删除磁盘上的 JSON 文件，下次仍可选回）')) return;
+  const onDisconnect = () => {
+    setConfirm({ kind: 'disconnect-directory' });
+  };
+
+  const runDisconnectDirectory = async () => {
+    setConfirm(null);
     await disconnectDataDirectory();
     await refresh();
     showTip(true, '已解除绑定');
@@ -343,17 +344,17 @@ export function useDataPersistence({
     }
   };
 
-  const onImportFile = async (file: File) => {
+  const onImportFile = (file: File) => {
+    setConfirm({ kind: 'import-json', file });
+  };
+
+  const runImportJson = async (mode: 'replace' | 'merge') => {
+    const file = confirm?.kind === 'import-json' ? confirm.file : undefined;
+    setConfirm(null);
+    if (!file) return;
     setBusy('import');
     try {
       const text = await file.text();
-      const mode = confirm(
-        '从备份恢复方式：\n\n' +
-          '· 点【确定】= 完全替换（适合刚重装后导入旧备份）\n' +
-          '· 点【取消】= 与现有数据合并（按 id 去重，保留较新版本）',
-      )
-        ? 'replace'
-        : 'merge';
       const r = await restoreBackup(JSON.parse(text), mode);
       showTip(true, `已${mode === 'replace' ? '替换' : '合并'} · 历史 ${r.historyTotal} 条`);
       onDataRestored?.();
@@ -392,17 +393,20 @@ export function useDataPersistence({
     busy,
     tip,
     decision,
-    manualBackupOpen,
-    setManualBackupOpen,
+    confirm,
+    setConfirm,
     importInputRef,
     fsaSupported,
     isSyncActive,
     onPick,
     onSyncNow,
     onRestoreNow,
+    runRestoreFromDirectory,
     onDisconnect,
+    runDisconnectDirectory,
     onExport,
     onImportFile,
+    runImportJson,
     applyDecision,
     closeDecision,
   };

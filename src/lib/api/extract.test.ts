@@ -127,6 +127,29 @@ describe('extractPrompt MiniMax + reference image guard', () => {
     expect(callOpenAICompatible).toHaveBeenCalledTimes(1);
   });
 
+  it('uses per-strategy replace instruction when set', async () => {
+    const settings = baseSettings({ activeProvider: 'openai' });
+    settings.providers.openai.apiKey = 'sk-test';
+    settings.strategyOverrides = { v036: { instruction: '用户自定义整段指令' } };
+    const prefetched = [
+      {
+        dataUrl: 'data:image/jpeg;base64,xx',
+        base64: 'xx',
+        mediaType: 'image/jpeg',
+        byteLength: 1,
+      },
+    ];
+
+    await extractPrompt({
+      imageUrls: ['data:image/jpeg;base64,xx'],
+      settings,
+      prefetched,
+    });
+
+    const [, , instruction] = vi.mocked(callOpenAICompatible).mock.calls[0]!;
+    expect(instruction).toBe('用户自定义整段指令');
+  });
+
   it('uses the v036 default high-fidelity instruction for image extraction', async () => {
     const settings = baseSettings({ activeProvider: 'openai' });
     settings.providers.openai.apiKey = 'sk-test';
@@ -206,5 +229,26 @@ describe('extractPrompt MiniMax + reference image guard', () => {
     expect(instruction).toContain('图2≈2s');
     expect(instruction).toContain('景别/镜头与构图');
     expect(instruction).toContain('禁止在末尾追加总结段');
+  });
+});
+
+describe('extractPrompt empty extract model guard', () => {
+  beforeEach(() => {
+    vi.mocked(callOpenAICompatible).mockClear();
+  });
+
+  it('throws before HTTP when active provider has no model configured', async () => {
+    const settings = baseSettings({ activeProvider: 'openai' });
+    settings.providers.openai.apiKey = 'sk-test';
+    settings.providers.openai.model = '  ';
+
+    await expect(
+      extractPrompt({
+        imageUrls: ['data:image/jpeg;base64,xx'],
+        settings,
+      }),
+    ).rejects.toThrow(/配置反推模型/);
+
+    expect(callOpenAICompatible).not.toHaveBeenCalled();
   });
 });

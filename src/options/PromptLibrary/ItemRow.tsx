@@ -3,6 +3,7 @@ import { useRef, useState } from 'react';
 import { Pin, PinOff, Trash2, StickyNote, FolderInput, Folder, Image } from 'lucide-react';
 import type { HistoryItem, LibraryFolder } from '@/lib/types';
 import { formatTime } from '@/lib/format/time';
+import { outputStyleLabel } from '@/lib/strategies-meta';
 import { UI_ACTION } from '@/lib/uiCopy';
 import { CopyFeedbackLabel } from '@/components/ui';
 import { Thumb } from './Thumb';
@@ -81,52 +82,59 @@ export function ItemRow({
     >
       <Thumb item={item} size="md" />
       <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-1.5 flex-wrap text-[11px] text-zinc-500 mb-1">
+        <div className="flex items-center gap-1 flex-wrap text-[11px] text-zinc-400 dark:text-zinc-500 mb-1.5">
           {item.pinned && (
-            <span className="px-1.5 py-px rounded bg-amber-100 dark:bg-amber-500/20 text-amber-700 dark:text-amber-300 inline-flex items-center gap-1 font-medium">
-              <Pin className="w-3 h-3" /> 置顶
-            </span>
+            <Pin className="w-3 h-3 text-zinc-500 dark:text-zinc-400 flex-none" aria-label="置顶" />
           )}
-          <span className="px-1.5 py-px rounded bg-zinc-100 dark:bg-zinc-800 font-medium">
-            {item.provider}
-          </span>
-          <span className="font-mono truncate max-w-[200px] text-zinc-500">{item.model}</span>
+          <span className="text-zinc-500 dark:text-zinc-400">{item.provider}</span>
           <span className="text-zinc-300 dark:text-zinc-600">·</span>
-          <span>{item.style}</span>
+          <span className="font-mono truncate max-w-[180px]">{item.model}</span>
           <span className="text-zinc-300 dark:text-zinc-600">·</span>
-          <span>{formatTime(item.updatedAt || item.createdAt)}</span>
+          <span>{outputStyleLabel(item.style)}</span>
+          <span className="text-zinc-300 dark:text-zinc-600">·</span>
+          <span className="tabular-nums">{formatTime(item.updatedAt || item.createdAt)}</span>
           {versionCount > 0 && (
-            <span className="px-1.5 py-px rounded bg-violet-100 dark:bg-violet-500/20 text-violet-700 dark:text-violet-300">
-              v{versionCount}
-            </span>
+            <>
+              <span className="text-zinc-300 dark:text-zinc-600">·</span>
+              <span className="tabular-nums">v{versionCount}</span>
+            </>
           )}
           {folder && folderColor && (
-            <span
-              className="px-1.5 py-px rounded bg-zinc-100 dark:bg-zinc-800 inline-flex items-center gap-1 max-w-[160px] truncate"
-              title={`项目 / 文件夹：${folder.name}`}
-            >
-              <span className={`w-2 h-2 rounded-full ${folderColor.dot} flex-none`} />
-              <span className="truncate">{folder.name}</span>
-            </span>
+            <>
+              <span className="text-zinc-300 dark:text-zinc-600">·</span>
+              <span
+                className="inline-flex items-center gap-1 max-w-[160px] truncate"
+                title={`项目 / 文件夹：${folder.name}`}
+              >
+                <span className={`w-1.5 h-1.5 rounded-full ${folderColor.dot} flex-none`} />
+                <span className="truncate">{folder.name}</span>
+              </span>
+            </>
           )}
           {item.note && (
-            <span className="px-1.5 py-px rounded bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 inline-flex items-center gap-1 max-w-[220px] truncate">
-              <StickyNote className="w-3 h-3 flex-none" />
-              <span className="truncate">{item.note}</span>
-            </span>
+            <>
+              <span className="text-zinc-300 dark:text-zinc-600">·</span>
+              <span
+                className="inline-flex items-center gap-1 max-w-[220px] truncate text-zinc-500 dark:text-zinc-400"
+                title={item.note}
+              >
+                <StickyNote className="w-3 h-3 flex-none opacity-70" />
+                <span className="truncate">{item.note}</span>
+              </span>
+            </>
           )}
         </div>
         <p className="text-[13px] leading-[1.6] text-zinc-700 dark:text-zinc-300 whitespace-pre-wrap break-words line-clamp-3">
           {item.prompt || <span className="text-zinc-400 italic">（空）</span>}
         </p>
 
-        <div className="mt-2 flex items-center gap-1 flex-wrap text-[11px]">
+        <div className="mt-2.5 flex items-center gap-0.5 flex-wrap text-[11px]">
           <button
             onClick={(e) => {
               stop(e);
               onCopy(item.prompt, `cur:${item.id}`);
             }}
-            className="inline-flex items-center gap-1 px-2 py-1 rounded-md hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-600 dark:text-zinc-300 transition"
+            className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-zinc-700 dark:hover:text-zinc-200 transition"
           >
             <CopyFeedbackLabel active={copiedKey === `cur:${item.id}`} />
           </button>
@@ -135,10 +143,8 @@ export function ItemRow({
               stop(e);
               onTogglePin();
             }}
-            className={`inline-flex items-center gap-1 px-2 py-1 rounded-md transition ${
-              item.pinned
-                ? 'bg-amber-100 dark:bg-amber-500/20 text-amber-700 dark:text-amber-300'
-                : 'hover:bg-amber-50 dark:hover:bg-amber-500/10 text-amber-600 dark:text-amber-300'
+            className={`inline-flex items-center gap-1 px-2 py-1 rounded-md transition text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-zinc-700 dark:hover:text-zinc-200 ${
+              item.pinned ? 'text-zinc-700 dark:text-zinc-200' : ''
             }`}
             title={item.pinned ? '取消置顶' : '置顶'}
           >
@@ -159,7 +165,7 @@ export function ItemRow({
             }}
             disabled={!canJump || jumpBusy}
             title={canJump ? UI_ACTION.jumpToOriginalTitle : '该记录没有可用的原图网页地址'}
-            className="inline-flex items-center gap-1 px-2 py-1 rounded-md transition disabled:opacity-40 disabled:cursor-not-allowed hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-600 dark:text-zinc-300"
+            className="inline-flex items-center gap-1 px-2 py-1 rounded-md transition disabled:opacity-40 disabled:cursor-not-allowed text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-zinc-700 dark:hover:text-zinc-200"
           >
             <Image className="w-3 h-3" />
             {jumpBusy ? '跳转中…' : UI_ACTION.jumpToOriginal}
@@ -172,11 +178,7 @@ export function ItemRow({
                   stop(e);
                   setMoveOpen((v) => !v);
                 }}
-                className={`inline-flex items-center gap-1 px-2 py-1 rounded-md transition ${
-                  folder
-                    ? 'text-amber-600 dark:text-amber-300 hover:bg-amber-50 dark:hover:bg-amber-500/10'
-                    : 'text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800'
-                }`}
+                className="inline-flex items-center gap-1 px-2 py-1 rounded-md transition text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-zinc-700 dark:hover:text-zinc-200"
                 title={folder ? `当前在「${folder.name}」` : '把这条移动到项目 / 文件夹'}
               >
                 {folder ? <Folder className="w-3 h-3" /> : <FolderInput className="w-3 h-3" />}

@@ -10,6 +10,9 @@ import {
 /** 与 `gallery.html` 中 message 监听保持一致，修改时需同步。 */
 export const DEV_PREVIEW_NAV = 'DEV_PREVIEW_NAV' as const;
 
+/** iframe 内 Popup 上报内容高度，供聚合页调整 iframe 高度。 */
+export const DEV_PREVIEW_POPUP_SIZE = 'DEV_PREVIEW_POPUP_SIZE' as const;
+
 export type DevPreviewNavPayload =
   | { view: 'popup' }
   | { view: 'options'; optionsHash?: string }
@@ -193,7 +196,8 @@ export function installChromePreviewShim(): void {
         };
       case 'FETCH_PROVIDER_QUOTA': {
         try {
-          const payload = (message as { payload?: { providerId?: unknown; force?: unknown } }).payload;
+          const payload = (message as { payload?: { providerId?: unknown; force?: unknown } })
+            .payload;
           const { fetchProviderQuota } = await import('@/lib/quota/fetch');
           const snapshot = await fetchProviderQuota({
             providerId: payload?.providerId as import('@/lib/types').ProviderId | undefined,
@@ -361,6 +365,51 @@ export function installChromePreviewShim(): void {
           return { ok: true as const, item };
         } catch {
           return { ok: false as const, error: 'REMOVE_PROMPT_VERSION 异常' };
+        }
+      }
+      case 'GET_ACTIVE_MODEL_OPTIONS': {
+        try {
+          const { getSettings } = await import('@/lib/storage');
+          const s = await getSettings();
+          const provider = s.activeProvider;
+          const cfg = s.providers[provider];
+          if (!cfg) {
+            return { ok: false as const, error: '未找到当前供应商配置' };
+          }
+          return {
+            ok: true as const,
+            provider,
+            model: cfg.model,
+            models: cfg.discoveredModels ?? [],
+            visionById: cfg.discoveredVisionById ?? {},
+          };
+        } catch {
+          return { ok: false as const, error: 'GET_ACTIVE_MODEL_OPTIONS 异常' };
+        }
+      }
+      case 'SET_EXTRACT_MODEL': {
+        const model = (message as { payload?: { model?: string } }).payload?.model?.trim();
+        if (!model) {
+          return { ok: false as const, error: '缺少 model' };
+        }
+        try {
+          const { getSettings, saveSettings } = await import('@/lib/storage');
+          const s = await getSettings();
+          const provider = s.activeProvider;
+          const cfg = s.providers[provider];
+          if (!cfg) {
+            return { ok: false as const, error: '未找到当前供应商配置' };
+          }
+          await saveSettings({
+            ...s,
+            providers: {
+              ...s.providers,
+              [provider]: { ...cfg, model },
+            },
+          });
+          return { ok: true as const };
+        } catch {
+          return { ok: false as const, error: 'SET_EXTRACT_MODEL 异常' };
         }
       }
       /* EXTRACT_PROMPT 未模拟：面板内「重新生成」会发消息但无后台流式进度，可能停在 loading。 */

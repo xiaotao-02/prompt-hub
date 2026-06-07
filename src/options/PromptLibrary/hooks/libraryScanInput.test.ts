@@ -14,4 +14,13 @@ describe('buildUsesFullLibraryScan', () => {
       }),
     ).toBe(true);
   });
+
+  it('returns true when filterProvider is not all', () => {
+    expect(
+      buildUsesFullLibraryScan({
+        ...DEFAULT_LIBRARY_SCAN_INPUT,
+        filterProvider: 'openai',
+      }),
+    ).toBe(true);
+  });
 });

@@ -8,13 +8,15 @@ import { buildVisionById } from '../modelVision';
 import type { ModelVisionSupport } from '../modelVision';
 import { resolveProviderApiKey } from '../api/resolveProviderApiKey';
 import type { ProviderConfig, ProviderId } from '../types';
-import { sortModelsGroupedNewestFirst } from './modelSort';
+import { sortModelsGroupedNewestFirst, type ModelListEntry } from './modelSort';
 import { describeRespFailure, parseJsonResponse } from './http';
 import { normalizeOpenAIBase, trimSlash } from './url';
 
 export interface ModelListResult {
   ids: string[];
   visionById: Record<string, ModelVisionSupport>;
+  /** 含 created 的原始条目，供自动推荐排序使用 */
+  entries: ModelListEntry[];
   /** 去重后的 owned_by，供 Provider 推断用 */
   ownedByValues?: string[];
 }
@@ -25,6 +27,10 @@ interface OpenRouterModelRow {
   created?: number;
   owned_by?: string;
   architecture?: { input_modalities?: string[] };
+  /** 平台聚合 API 扩展字段 */
+  vision?: boolean | null;
+  upstream?: string;
+  upstreamLabel?: string;
 }
 
 export async function listModels(
@@ -51,7 +57,11 @@ export async function listModels(
       .map((m) => (m.name || '').replace(/^models\//, ''))
       .filter(Boolean);
     const ids = sortModelsGroupedNewestFirst(list.map((id) => ({ id })));
-    return { ids, visionById: buildVisionById(providerId, ids) };
+    return {
+      ids,
+      visionById: buildVisionById(providerId, ids),
+      entries: list.map((id) => ({ id })),
+    };
   }
 
   const baseUrl =
@@ -83,11 +93,15 @@ export async function listModels(
 
   const apiHintsById: Record<string, { inputModalities?: string[] }> = {};
   const ownedBySet = new Set<string>();
+  const backendVisionById: Record<string, ModelVisionSupport> = {};
   const entries = arr
     .map((m) => {
       const id = m.id || m.name || '';
       if (m.architecture?.input_modalities?.length) {
         apiHintsById[id] = { inputModalities: m.architecture.input_modalities };
+      }
+      if (typeof m.vision === 'boolean') {
+        backendVisionById[id] = m.vision ? 'vision' : 'no_vision';
       }
       if (typeof m.owned_by === 'string' && m.owned_by.trim()) {
         ownedBySet.add(m.owned_by.trim());
@@ -100,7 +114,11 @@ export async function listModels(
     .filter((m) => m.id);
 
   const ids = sortModelsGroupedNewestFirst(entries);
-  const visionById = buildVisionById(providerId, ids, apiHintsById);
+  const visionById =
+    Object.keys(backendVisionById).length > 0
+      ? { ...buildVisionById(providerId, ids, apiHintsById), ...backendVisionById }
+      : buildVisionById(providerId, ids, apiHintsById);
+
   const ownedByValues = ownedBySet.size > 0 ? [...ownedBySet] : undefined;
-  return { ids, visionById, ownedByValues };
+  return { ids, visionById, entries, ownedByValues };
 }

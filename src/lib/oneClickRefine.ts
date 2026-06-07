@@ -2,6 +2,13 @@ import type { OneClickRefineRandomness } from '@/lib/types';
 
 export const DEFAULT_ONE_CLICK_REFINE_RANDOMNESS: OneClickRefineRandomness = 'moderate';
 
+/** 洗稿强度档位顺序（面板 Shadow 与提示词库 Tailwind 下拉共用） */
+export const ONE_CLICK_REFINE_RANDOMNESS_LEVELS = [
+  'subtle',
+  'moderate',
+  'bold',
+] as const satisfies readonly OneClickRefineRandomness[];
+
 /** UI 档位文案（浮动面板下拉与选项页共用）。 */
 export const ONE_CLICK_REFINE_RANDOMNESS_LABELS: Record<OneClickRefineRandomness, string> = {
   subtle: '轻度',

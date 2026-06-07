@@ -1,5 +1,5 @@
 - generic [ref=e1]:
-    - heading "Prompt Hub · 开发 UI 实时预览" [level=1] [ref=e2]
+    - heading "Prompt Extracto · 开发 UI 实时预览" [level=1] [ref=e2]
     - paragraph [ref=e3]:
         - text: 根目录
         - code [ref=e4]: npm run dev
@@ -54,8 +54,8 @@
                 - banner [ref=f2e4]:
                     - generic [ref=f2e5]:
                         - generic [ref=f2e6]:
-                            - img "Prompt Hub" [ref=f2e7]
-                            - heading "Prompt Hub" [level=1] [ref=f2e8]
+                            - img "Prompt Extracto" [ref=f2e7]
+                            - heading "Prompt Extracto" [level=1] [ref=f2e8]
                         - tablist "选项页视图" [ref=f2e9]:
                             - tab "设置" [selected] [ref=f2e10]:
                                 - img [ref=f2e11]

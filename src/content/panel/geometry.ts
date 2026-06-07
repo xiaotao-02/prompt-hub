@@ -19,8 +19,26 @@ import {
   type PanelState,
 } from './state';
 
+export type ComposePanelWidthOpts = {
+  refCount: number;
+  videoMode: boolean;
+};
+
 const STORAGE_KEY = '__image_prompt_extractor_panel_geom__';
 const PANEL_SURFACE_SELECTOR = '[data-role="panel-surface"]';
+/** 略大于 --pe-collapse-duration (220ms) */
+const GEOMETRY_TRANSITION_FALLBACK_MS = 320;
+
+function prefersReducedMotion(): boolean {
+  if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return false;
+  return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+}
+/** 渲染前锁定的面板高度（px）；null 表示未在 FLIP 流程中 */
+let autoHeightFlipLocked: number | null = null;
+let geometryTransitionFallbackTimer: number | null = null;
+let heightFlipFinalizeTimer: number | null = null;
+let heightFlipEndHandler: ((e: TransitionEvent) => void) | null = null;
+
 export const MIN_WIDTH = 360;
 export const MIN_HEIGHT = 220;
 export const VIEWPORT_MARGIN = 8;
@@ -32,6 +50,17 @@ export const PANEL_HEIGHT_RATIO = 0.72;
 export const PANEL_MAX_WIDTH = 1100;
 /** 仅用于垂直居中估算 */
 export const PANEL_MAX_HEIGHT = 680;
+/** compose 态：工具栏 + 输出设置 + 操作栏下限 */
+export const COMPOSE_PANEL_MIN_WIDTH = 420;
+/** compose 图片模式宽度上限 */
+export const COMPOSE_PANEL_MAX_WIDTH = 560;
+/** compose 视频采集模式宽度上限 */
+export const COMPOSE_VIDEO_PANEL_MAX_WIDTH = 600;
+/** 与 compose.ts .ref-item 对齐 */
+export const COMPOSE_REF_THUMB = 100;
+export const COMPOSE_REF_GAP = 8;
+/** .body 16*2 + .compose-card-body 10*2 */
+export const COMPOSE_BODY_PAD = 52;
 /** @deprecated 使用 getCachedVersionsSidebarWidth()；保留作文档默认宽度 */
 export const SIDEBAR_WIDTH = 280;
 
@@ -76,7 +105,8 @@ function readSession(): PanelGeometry | null {
       typeof v.left === 'number' &&
       typeof v.top === 'number' &&
       (v.width === undefined || typeof v.width === 'number') &&
-      (v.height === undefined || typeof v.height === 'number')
+      (v.height === undefined || typeof v.height === 'number') &&
+      (v.widthUserLocked === undefined || typeof v.widthUserLocked === 'boolean')
     ) {
       return v;
     }
@@ -120,7 +150,7 @@ export function clampGeometry(g: PanelGeometry): PanelGeometry {
   const maxTop = originTop + vh - estH - VIEWPORT_MARGIN;
   const left = Math.max(minL, Math.min(g.left, Math.max(minL, maxLeft)));
   const top = Math.max(minT, Math.min(g.top, Math.max(minT, maxTop)));
-  return { left, top, width: w, height: h };
+  return { left, top, width: w, height: h, widthUserLocked: g.widthUserLocked };
 }
 
 /**
@@ -142,6 +172,34 @@ export function ratioCenteredGeometry(): PanelGeometry {
   const left = Math.max(minL, Math.round(originLeft + (vw - width) / 2));
   const top = Math.max(minT, Math.round(originTop + (vh - estHeight) / 2));
   return clampGeometry({ left, top, width });
+}
+
+/** compose 态按参考图数量与模式计算合适宽度（px）。 */
+export function computeComposePanelWidth(opts: ComposePanelWidthOpts): number {
+  const { width: vw } = getLayoutViewportBox();
+  const strip =
+    opts.refCount <= 0
+      ? 0
+      : opts.refCount * COMPOSE_REF_THUMB + (opts.refCount - 1) * COMPOSE_REF_GAP;
+  const natural = Math.max(COMPOSE_PANEL_MIN_WIDTH, strip + COMPOSE_BODY_PAD);
+  const cap = opts.videoMode ? COMPOSE_VIDEO_PANEL_MAX_WIDTH : COMPOSE_PANEL_MAX_WIDTH;
+  return Math.max(MIN_WIDTH, Math.min(natural, cap, vw - VIEWPORT_MARGIN * 2));
+}
+
+/** compose 态几何：保持当前 top，按内容宽度水平居中。 */
+export function composeCenteredGeometry(opts: ComposePanelWidthOpts): PanelGeometry {
+  const base = panelGeometry ?? ensureGeometry();
+  const width = computeComposePanelWidth(opts);
+  const { width: vw, originLeft } = getLayoutViewportBox();
+  const minL = originLeft + VIEWPORT_MARGIN;
+  const left = Math.max(minL, Math.round(originLeft + (vw - width) / 2));
+  return clampGeometry({
+    left,
+    top: base.top,
+    width,
+    height: base.height,
+    widthUserLocked: base.widthUserLocked,
+  });
 }
 
 /**
@@ -171,8 +229,11 @@ export function applyGeometryToPanel(p: HTMLElement, g: PanelGeometry): void {
   p.style.top = `${g.top}px`;
   if (g.width !== undefined) p.style.width = `${g.width}px`;
   else p.style.removeProperty('width');
-  if (g.height !== undefined) p.style.height = `${g.height}px`;
-  else p.style.removeProperty('height');
+  if (g.height !== undefined) {
+    p.style.height = `${g.height}px`;
+  } else if (autoHeightFlipLocked === null) {
+    p.style.removeProperty('height');
+  }
   p.classList.toggle('panel-locked-height', g.height !== undefined);
   if (g.height !== undefined) {
     applyStableSurfaceMinHeight(p, 0);
@@ -192,6 +253,7 @@ export function updateGeometry(patch: Partial<PanelGeometry>): PanelGeometry {
   if (patch.top !== undefined) merged.top = patch.top;
   if (patch.width !== undefined) merged.width = patch.width;
   if (patch.height !== undefined) merged.height = patch.height;
+  if (patch.widthUserLocked !== undefined) merged.widthUserLocked = patch.widthUserLocked;
   const clamped = clampGeometry(merged);
   setPanelGeometry(clamped);
   writeSession(clamped);
@@ -230,6 +292,122 @@ export function scheduleReclampOnViewportChange(): void {
   });
 }
 
+// ── 几何过渡动画（侧栏宽/位置 + auto 高度 FLIP）────────────────────────
+
+function clearGeometryTransitionTimer(): void {
+  if (geometryTransitionFallbackTimer !== null) {
+    window.clearTimeout(geometryTransitionFallbackTimer);
+    geometryTransitionFallbackTimer = null;
+  }
+}
+
+function clearHeightFlipListeners(): void {
+  if (heightFlipFinalizeTimer !== null) {
+    window.clearTimeout(heightFlipFinalizeTimer);
+    heightFlipFinalizeTimer = null;
+  }
+  if (heightFlipEndHandler && panel) {
+    panel.removeEventListener('transitionend', heightFlipEndHandler);
+    heightFlipEndHandler = null;
+  }
+}
+
+function finalizeAutoHeightFlip(): void {
+  clearHeightFlipListeners();
+  if (!panel) {
+    autoHeightFlipLocked = null;
+    return;
+  }
+  const g = panelGeometry ?? ensureGeometry();
+  if (g.height === undefined) {
+    panel.style.removeProperty('height');
+  }
+  autoHeightFlipLocked = null;
+}
+
+/**
+ * 临时启用 width/height/left/top CSS 过渡；可重入（延长 fallback）。
+ * prefers-reduced-motion 时不加 class。
+ */
+export function runPanelGeometryTransition(): void {
+  if (!panel || prefersReducedMotion()) return;
+
+  panel.classList.add('geometry-transition');
+  clearGeometryTransitionTimer();
+  geometryTransitionFallbackTimer = window.setTimeout(() => {
+    geometryTransitionFallbackTimer = null;
+    panel?.classList.remove('geometry-transition');
+  }, GEOMETRY_TRANSITION_FALLBACK_MS);
+}
+
+/**
+ * React 重渲前：auto 高度模式下锁定当前高度并启用过渡，供后续 FLIP 补完。
+ */
+export function capturePanelHeightBeforeRender(): void {
+  if (!panel) return;
+  const g = panelGeometry ?? ensureGeometry();
+  if (g.height !== undefined) return;
+  if (prefersReducedMotion()) return;
+
+  const before = Math.ceil(panel.getBoundingClientRect().height);
+  if (before <= 0) return;
+
+  autoHeightFlipLocked = before;
+  panel.style.height = `${before}px`;
+  runPanelGeometryTransition();
+}
+
+function scheduleHeightFlipFinalize(): void {
+  clearHeightFlipListeners();
+  if (!panel) return;
+
+  const done = () => finalizeAutoHeightFlip();
+
+  heightFlipEndHandler = (e: TransitionEvent) => {
+    if (e.target !== panel) return;
+    if (e.propertyName !== 'height') return;
+    done();
+  };
+
+  panel.addEventListener('transitionend', heightFlipEndHandler);
+  heightFlipFinalizeTimer = window.setTimeout(done, GEOMETRY_TRANSITION_FALLBACK_MS);
+}
+
+/** rAF 内：测量新内容自然高度并过渡到目标值 */
+function animatePanelAutoHeightIfNeeded(): void {
+  if (!panel || autoHeightFlipLocked === null) return;
+  const g = panelGeometry ?? ensureGeometry();
+  if (g.height !== undefined) {
+    autoHeightFlipLocked = null;
+    return;
+  }
+  if (prefersReducedMotion()) {
+    finalizeAutoHeightFlip();
+    return;
+  }
+
+  const before = autoHeightFlipLocked;
+
+  panel.style.removeProperty('height');
+  void panel.offsetHeight;
+  const natural = Math.ceil(panel.getBoundingClientRect().height);
+
+  if (Math.abs(natural - before) < 2) {
+    finalizeAutoHeightFlip();
+    return;
+  }
+
+  panel.style.height = `${before}px`;
+  void panel.offsetHeight;
+
+  if (!panel.classList.contains('geometry-transition')) {
+    runPanelGeometryTransition();
+  }
+
+  panel.style.height = `${natural}px`;
+  scheduleHeightFlipFinalize();
+}
+
 // ── 侧栏展开 / 收起时自动调整面板宽度 ──────────────────────────────
 
 let _sidebarLeftShift = 0;
@@ -240,6 +418,7 @@ let _sidebarLeftShift = 0;
  */
 export function expandPanelForSidebar(): void {
   if (!panel) return;
+  runPanelGeometryTransition();
   panel.style.setProperty('--pe-versions-width', `${currentSidebarWidth()}px`);
   const base = panelGeometry ?? ensureGeometry();
   const { originLeft } = getLayoutViewportBox();
@@ -259,6 +438,7 @@ export function collapsePanelForSidebar(): void {
   if (!panel) return;
   const base = panelGeometry ?? ensureGeometry();
   if (base.width === undefined) return;
+  runPanelGeometryTransition();
   const newWidth = Math.max(MIN_WIDTH, base.width - currentSidebarWidth());
   updateGeometry({ left: base.left + _sidebarLeftShift, width: newWidth });
   _sidebarLeftShift = 0;
@@ -286,6 +466,36 @@ export function getStableSurfaceMinHeight(): number {
 }
 
 const TALL_PANEL_STATUSES: PanelState['status'][] = ['loading', 'success', 'error'];
+const LEAVE_COMPOSE_STATUSES: PanelState['status'][] = ['loading', 'success', 'error'];
+
+/**
+ * compose ↔ 宽面板状态切换时自动调整宽度；用户 edge-resize 锁宽后跳过。
+ */
+export function maybeAdjustGeometryForPanelStatus(
+  status: PanelState['status'],
+  prevStatus: PanelState['status'] | null,
+  opts: ComposePanelWidthOpts,
+): void {
+  const g = panelGeometry ?? ensureGeometry();
+  if (g.widthUserLocked) return;
+
+  const enteringCompose = status === 'compose' && prevStatus !== 'compose';
+  const leavingCompose = prevStatus === 'compose' && LEAVE_COMPOSE_STATUSES.includes(status);
+
+  if (!enteringCompose && !leavingCompose) return;
+  if (enteringCompose && g.height !== undefined) return;
+
+  runPanelGeometryTransition();
+
+  if (enteringCompose) {
+    const next = composeCenteredGeometry(opts);
+    updateGeometry({ width: next.width, left: next.left });
+    return;
+  }
+
+  const wide = ratioCenteredGeometry();
+  updateGeometry({ width: wide.width, left: wide.left });
+}
 
 /**
  * 进入「收集参考图」等较短内容时，在自动高度模式下清掉此前 success/loading
@@ -341,5 +551,6 @@ export function scheduleStabilizePanelHeight(): void {
   requestAnimationFrame(() => {
     stabilizeRafQueued = false;
     stabilizePanelHeightNow();
+    animatePanelAutoHeightIfNeeded();
   });
 }

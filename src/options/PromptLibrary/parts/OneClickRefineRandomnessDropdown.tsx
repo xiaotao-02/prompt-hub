@@ -1,12 +1,10 @@
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState, type RefObject } from 'react';
 import type { OneClickRefineRandomness } from '@/lib/types';
-import { ONE_CLICK_REFINE_RANDOMNESS_LABELS } from '@/lib/oneClickRefine';
-
-const LEVELS = [
-  'subtle',
-  'moderate',
-  'bold',
-] as const satisfies readonly OneClickRefineRandomness[];
+import {
+  ONE_CLICK_REFINE_RANDOMNESS_LABELS,
+  ONE_CLICK_REFINE_RANDOMNESS_LEVELS,
+} from '@/lib/oneClickRefine';
+import { useAnchoredMenuDismiss } from '@/hooks/useAnchoredMenuDismiss';
 
 /**
  * 随机风格强度：自定义下拉，视觉对齐内容脚本面板的 `.strategy-dropdown` / `.sd-*`。
@@ -25,22 +23,12 @@ export function OneClickRefineRandomnessDropdown({
 }) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
+  const panelRef = useRef<HTMLUListElement>(null);
 
-  useEffect(() => {
-    if (!open) return;
-    const onDocPointer = (e: PointerEvent) => {
-      if (!rootRef.current?.contains(e.target as Node)) setOpen(false);
-    };
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setOpen(false);
-    };
-    document.addEventListener('pointerdown', onDocPointer, true);
-    document.addEventListener('keydown', onKey);
-    return () => {
-      document.removeEventListener('pointerdown', onDocPointer, true);
-      document.removeEventListener('keydown', onKey);
-    };
-  }, [open]);
+  useAnchoredMenuDismiss(open, () => setOpen(false), {
+    rootRef,
+    panelRef: panelRef as RefObject<HTMLElement | null>,
+  });
 
   const rounding = segmented ? 'rounded-l-md rounded-r-none border-r-0' : 'rounded-md';
   const label = ONE_CLICK_REFINE_RANDOMNESS_LABELS[value];
@@ -91,11 +79,12 @@ export function OneClickRefineRandomnessDropdown({
       </button>
       {open && !disabled && (
         <ul
+          ref={panelRef}
           role="listbox"
           aria-label="随机风格强度"
           className={`absolute bottom-full left-0 z-50 mb-1.5 min-w-[132px] list-none rounded-[10px] border border-black/10 bg-white/[0.98] p-1 shadow-lg backdrop-blur-md dark:border-white/10 dark:bg-[rgba(30,30,34,0.98)]`}
         >
-          {LEVELS.map((id) => {
+          {ONE_CLICK_REFINE_RANDOMNESS_LEVELS.map((id) => {
             const active = id === value;
             return (
               <li key={id} role="presentation">

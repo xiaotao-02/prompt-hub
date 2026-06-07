@@ -11,6 +11,7 @@ import { headerCss } from './styleSections/header';
 import { referencesCss } from './styleSections/references';
 import { composeCss } from './styleSections/compose';
 import { editorCss } from './styleSections/editor';
+import { videoShotsCss } from './styleSections/videoShots';
 import { metaCss } from './styleSections/meta';
 import { refineCss } from './styleSections/refine';
 import { versionsCss } from './styleSections/versions';
@@ -25,6 +26,7 @@ export const STYLE = [
   referencesCss,
   composeCss,
   editorCss,
+  videoShotsCss,
   metaCss,
   refineCss,
   versionsCss,

@@ -1,7 +1,8 @@
 /**
  * 用户在「自定义组合」下保存的命名策略预设（chrome.storage.local）。
  */
-import type { AppSettings, UserStrategyPreset } from '../types';
+import { getStrategyOverrideForId } from '../strategyOverrides';
+import type { AppSettings, StrategyOverride, UserStrategyPreset } from '../types';
 import type { StrategyComponents } from '../strategies-meta';
 import { notifyBackupSubscribers } from './backupNotify';
 import { USER_STRATEGY_PRESETS_KEY } from './keys';
@@ -17,6 +18,24 @@ export const DEFAULT_CUSTOM_COMPONENTS: StrategyComponents = {
 
 function isRecord(v: unknown): v is Record<string, unknown> {
   return v !== null && typeof v === 'object' && !Array.isArray(v);
+}
+
+function readPresetOverride(raw: Record<string, unknown>): StrategyOverride | undefined {
+  const so = raw.strategyOverride;
+  if (isRecord(so)) {
+    const ov: StrategyOverride = {};
+    if (typeof so.instruction === 'string' && so.instruction) ov.instruction = so.instruction;
+    if (typeof so.temperature === 'number') ov.temperature = so.temperature;
+    if (typeof so.maxTokens === 'number') ov.maxTokens = so.maxTokens;
+    if (Object.keys(ov).length > 0) return ov;
+  }
+  const legacy: StrategyOverride = {};
+  if (typeof raw.customInstruction === 'string' && raw.customInstruction) {
+    legacy.instruction = raw.customInstruction;
+  }
+  if (typeof raw.customTemperature === 'number') legacy.temperature = raw.customTemperature;
+  if (typeof raw.customMaxTokens === 'number') legacy.maxTokens = raw.customMaxTokens;
+  return Object.keys(legacy).length > 0 ? legacy : undefined;
 }
 
 function normalizePreset(raw: unknown): UserStrategyPreset | null {
@@ -39,6 +58,7 @@ function normalizePreset(raw: unknown): UserStrategyPreset | null {
   const updatedAt = typeof raw.updatedAt === 'number' ? raw.updatedAt : createdAt;
   const customPromptTemplate =
     typeof raw.customPromptTemplate === 'string' ? raw.customPromptTemplate : '';
+  const strategyOverride = readPresetOverride(raw);
   const out: UserStrategyPreset = {
     id,
     name,
@@ -50,12 +70,8 @@ function normalizePreset(raw: unknown): UserStrategyPreset | null {
       customJoin: customJoin as StrategyComponents['customJoin'],
     },
     customPromptTemplate,
+    strategyOverride,
   };
-  if (typeof raw.customInstruction === 'string' && raw.customInstruction) {
-    out.customInstruction = raw.customInstruction;
-  }
-  if (typeof raw.customTemperature === 'number') out.customTemperature = raw.customTemperature;
-  if (typeof raw.customMaxTokens === 'number') out.customMaxTokens = raw.customMaxTokens;
   return out;
 }
 
@@ -97,15 +113,14 @@ export function buildUserStrategyPresetFromSettings(
 ): UserStrategyPreset {
   const trimmed = name.trim().slice(0, MAX_PRESET_NAME_LEN);
   const comp = settings.customComponents ?? DEFAULT_CUSTOM_COMPONENTS;
+  const strategyOverride = getStrategyOverrideForId(settings, 'custom');
   return {
     id: crypto.randomUUID(),
     name: trimmed,
     createdAt: Date.now(),
     updatedAt: Date.now(),
     customComponents: { ...comp },
-    customInstruction: settings.customInstruction,
-    customTemperature: settings.customTemperature,
-    customMaxTokens: settings.customMaxTokens,
+    strategyOverride,
     customPromptTemplate: settings.customPromptTemplate ?? '',
   };
 }
@@ -114,21 +129,45 @@ export function applyUserStrategyPresetToSettings(
   base: AppSettings,
   preset: UserStrategyPreset,
 ): AppSettings {
+  const ov =
+    preset.strategyOverride ??
+    ({
+      instruction: preset.customInstruction,
+      temperature: preset.customTemperature,
+      maxTokens: preset.customMaxTokens,
+    } as StrategyOverride);
+  const overrides = { ...(base.strategyOverrides ?? {}) };
+  if (ov && Object.keys(ov).length > 0) {
+    overrides.custom = ov;
+  } else {
+    delete overrides.custom;
+  }
   return {
     ...base,
     promptStrategy: 'custom',
     customComponents: { ...preset.customComponents },
-    customInstruction: preset.customInstruction,
-    customTemperature: preset.customTemperature,
-    customMaxTokens: preset.customMaxTokens,
+    strategyOverrides: Object.keys(overrides).length > 0 ? overrides : undefined,
+    customInstruction: undefined,
+    customTemperature: undefined,
+    customMaxTokens: undefined,
     customPromptTemplate: preset.customPromptTemplate ?? '',
   };
 }
 
-/** 策略版本网格中预设卡片的短说明（组件版本指纹） */
-export function briefUserPresetFingerprint(preset: UserStrategyPreset): string {
-  const c = preset.customComponents;
-  return `指令集@${c.stylePromptSet} · 采样@${c.sampling} · 拼接@${c.customJoin}`;
+/** 策略版本网格中预设卡片的短说明 */
+export function briefUserPresetFingerprint(_preset: UserStrategyPreset): string {
+  return '自定义组合';
+}
+
+function presetOverride(preset: UserStrategyPreset): StrategyOverride | undefined {
+  if (preset.strategyOverride && Object.keys(preset.strategyOverride).length > 0) {
+    return preset.strategyOverride;
+  }
+  const legacy: StrategyOverride = {};
+  if (preset.customInstruction) legacy.instruction = preset.customInstruction;
+  if (preset.customTemperature != null) legacy.temperature = preset.customTemperature;
+  if (preset.customMaxTokens != null) legacy.maxTokens = preset.customMaxTokens;
+  return Object.keys(legacy).length > 0 ? legacy : undefined;
 }
 
 /**
@@ -148,13 +187,24 @@ export function isSettingsMatchingUserPreset(
   ) {
     return false;
   }
-  const si = settings.customInstruction ?? '';
-  const pi = preset.customInstruction ?? '';
-  if (si !== pi) return false;
   if ((settings.customPromptTemplate ?? '') !== (preset.customPromptTemplate ?? '')) return false;
-  if (settings.customTemperature !== preset.customTemperature) return false;
-  if (settings.customMaxTokens !== preset.customMaxTokens) return false;
+
+  const settingsOv = getStrategyOverrideForId(settings, 'custom') ?? {};
+  const presetOv = presetOverride(preset) ?? {};
+  const instrS = settingsOv.instruction ?? '';
+  const instrP = presetOv.instruction ?? '';
+  if (instrS !== instrP) return false;
+  if (settingsOv.temperature !== presetOv.temperature) return false;
+  if (settingsOv.maxTokens !== presetOv.maxTokens) return false;
   return true;
+}
+
+/** 与当前 settings 完全一致的已保存预设（至多一条）。 */
+export function findMatchingUserPreset(
+  settings: AppSettings,
+  presets: UserStrategyPreset[],
+): UserStrategyPreset | undefined {
+  return presets.find((p) => isSettingsMatchingUserPreset(settings, p));
 }
 
 export async function addUserStrategyPreset(

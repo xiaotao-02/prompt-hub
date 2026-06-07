@@ -11,6 +11,8 @@ interface Props {
   providerId: ProviderId;
   /** 紧凑模式：Popup 头部 */
   compact?: boolean;
+  /** 只读展示（无刷新按钮，用于嵌在其它 button 内） */
+  readOnly?: boolean;
   className?: string;
 }
 
@@ -24,7 +26,33 @@ function compactLabel(snap: ProviderQuotaSnapshot): string {
   return snap.label;
 }
 
-export default function ProviderQuotaBadge({ providerId, compact = false, className }: Props) {
+function chipLabel(snap: ProviderQuotaSnapshot | null, compact: boolean): string {
+  if (!snap) return '额度…';
+  if (compact) return compactLabel(snap);
+  return snap.status === 'ok' ? `剩余 ${snap.label}` : snap.label;
+}
+
+function toneClasses(tone: 'ok' | 'low' | 'error' | 'muted', loading: boolean): string {
+  return cx(
+    'inline-flex items-center gap-1 min-w-0 rounded-md border px-2 py-0.5 text-[11px] leading-tight transition-colors',
+    tone === 'ok' &&
+      'border-emerald-200/80 bg-emerald-50/80 text-emerald-800 dark:border-emerald-900/50 dark:bg-emerald-950/30 dark:text-emerald-200',
+    tone === 'low' &&
+      'border-amber-200/80 bg-amber-50/80 text-amber-800 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-200',
+    tone === 'error' &&
+      'border-rose-200/80 bg-rose-50/80 text-rose-700 dark:border-rose-900/50 dark:bg-rose-950/30 dark:text-rose-300',
+    tone === 'muted' &&
+      'border-zinc-200/80 bg-zinc-50/80 text-zinc-600 dark:border-zinc-700 dark:bg-zinc-900/40 dark:text-zinc-400',
+    loading && 'opacity-70',
+  );
+}
+
+export default function ProviderQuotaBadge({
+  providerId,
+  compact = false,
+  readOnly = false,
+  className,
+}: Props) {
   const [snapshot, setSnapshot] = useState<ProviderQuotaSnapshot | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -96,52 +124,43 @@ export default function ProviderQuotaBadge({ providerId, compact = false, classN
         snap.status === 'ok' ? `剩余额度：${snap.label}` : snap.label,
         snap.detail,
         snap.error,
-        '点击刷新',
+        readOnly ? undefined : '点击刷新',
       ]
         .filter(Boolean)
         .join('\n')
     : '加载额度…';
 
   const docsUrl = snap?.docsUrl;
+  const labelText = chipLabel(snap, compact);
+  const chipClass = toneClasses(tone, loading);
+
+  const chipContent = readOnly ? (
+    <span title={title} className={cx(chipClass, 'shrink-0 whitespace-nowrap')}>
+      <span>{labelText}</span>
+    </span>
+  ) : (
+    <button
+      type="button"
+      onClick={() => void refresh(true)}
+      disabled={loading}
+      title={title}
+      className={chipClass}
+    >
+      <RefreshCw className={cx('w-3 h-3 shrink-0', loading && 'animate-spin')} aria-hidden />
+      <span className="truncate">{labelText}</span>
+    </button>
+  );
 
   return (
     <div
       className={cx(
         'inline-flex items-center gap-1 min-w-0',
-        compact ? 'max-w-[7.5rem]' : '',
+        compact && !readOnly ? 'max-w-[7.5rem]' : '',
         className,
       )}
     >
-      <button
-        type="button"
-        onClick={() => void refresh(true)}
-        disabled={loading}
-        title={title}
-        className={cx(
-          'inline-flex items-center gap-1 min-w-0 rounded-md border px-2 py-0.5 text-[11px] leading-tight transition-colors',
-          tone === 'ok' &&
-            'border-emerald-200/80 bg-emerald-50/80 text-emerald-800 dark:border-emerald-900/50 dark:bg-emerald-950/30 dark:text-emerald-200',
-          tone === 'low' &&
-            'border-amber-200/80 bg-amber-50/80 text-amber-800 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-200',
-          tone === 'error' &&
-            'border-rose-200/80 bg-rose-50/80 text-rose-700 dark:border-rose-900/50 dark:bg-rose-950/30 dark:text-rose-300',
-          tone === 'muted' &&
-            'border-zinc-200/80 bg-zinc-50/80 text-zinc-600 dark:border-zinc-700 dark:bg-zinc-900/40 dark:text-zinc-400',
-          loading && 'opacity-70',
-        )}
-      >
-        <RefreshCw className={cx('w-3 h-3 shrink-0', loading && 'animate-spin')} aria-hidden />
-        <span className="truncate">
-          {!snap
-            ? '额度…'
-            : compact
-              ? compactLabel(snap)
-              : snap.status === 'ok'
-                ? `剩余 ${snap.label}`
-                : snap.label}
-        </span>
-      </button>
-      {docsUrl && snap?.status === 'unsupported' && (
+      {chipContent}
+      {docsUrl && snap?.status === 'unsupported' && !readOnly && (
         <a
           href={docsUrl}
           target="_blank"

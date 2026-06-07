@@ -3,7 +3,7 @@ import type { AppSettings, ProviderConfig, ProviderId } from './types';
 
 /** 次选 API 未配置时 refine / 洗稿 应展示的提示（与设置页路径一致） */
 export const REFINE_PROVIDER_NOT_CONFIGURED =
-  '请先在「设置 → 模型与连接」中配置次选 API（用于提示词调整）。';
+  '请先在「设置 → 内置服务 / 自定义 API」中配置次选 API（用于提示词调整）。';
 
 export class RefineProviderNotConfiguredError extends Error {
   constructor(message = REFINE_PROVIDER_NOT_CONFIGURED) {
@@ -52,13 +52,13 @@ export function validateRefineSettings(settings: AppSettings): RefineSettingsVal
   if (!model) {
     return {
       ok: false,
-      error: '请先在「设置 → 模型与连接 → 次选 API」中填写模型名',
+      error: '请先在「设置 → 内置服务 / 自定义 API → 次选 API」中填写模型名',
     };
   }
   if (!base.baseUrl?.trim()) {
     return {
       ok: false,
-      error: '请先在「设置 → 模型与连接 → 次选 API」中填写接口地址（需含 /v1）',
+      error: '请先在「设置 → 内置服务 / 自定义 API → 次选 API」中填写接口地址（需含 /v1）',
     };
   }
   if (!base.apiKey?.trim()) {
@@ -108,12 +108,12 @@ export async function resolveRefineConfig(
   const model = resolveEffectiveRefineModel(settings).trim();
   if (!model) {
     throw new RefineProviderNotConfiguredError(
-      '请先在「设置 → 模型与连接 → 次选 API」中填写模型名',
+      '请先在「设置 → 内置服务 / 自定义 API → 次选 API」中填写模型名',
     );
   }
   if (!base.baseUrl?.trim()) {
     throw new RefineProviderNotConfiguredError(
-      '请先在「设置 → 模型与连接 → 次选 API」中填写接口地址（需含 /v1）',
+      '请先在「设置 → 内置服务 / 自定义 API → 次选 API」中填写接口地址（需含 /v1）',
     );
   }
   const cfg: ProviderConfig = { ...base, model };

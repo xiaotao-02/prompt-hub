@@ -1,52 +1,44 @@
 import * as React from 'react';
+import { IconButton } from '@/components/ui';
 
+/** 提示词库网格卡片浮层图标按钮（基于 L2 IconButton，附加卡片浮层样式） */
 export function IconBtn({
   children,
   title,
   onClick,
   active,
-  activeColor,
   hoverColor,
   disabled,
+  size = 'md',
 }: {
   children: React.ReactNode;
   title: string;
   onClick: () => void;
   active?: boolean;
+  /** @deprecated 保留参数兼容 */
   activeColor?: 'emerald' | 'amber' | 'violet';
   hoverColor?: 'rose' | 'violet' | 'amber';
   disabled?: boolean;
+  size?: 'md' | 'sm';
 }) {
-  const activeMap = {
-    emerald: 'text-emerald-500',
-    amber: 'text-amber-500',
-    violet: 'text-violet-400',
-  } as const;
-  // hover 默认跟"主操作色"violet 走；rose 用于危险动作（删除），
-  // violet 用于「跳到其它编辑容器」这类导航类操作（如召回到网页浮动面板），
-  // amber 用于「移动到 / 文件夹」这类归类操作。
-  const hoverClass =
-    hoverColor === 'rose'
-      ? 'hover:text-rose-500'
-      : hoverColor === 'amber'
-        ? 'hover:text-amber-600 dark:hover:text-amber-300'
-        : 'hover:text-violet-600 dark:hover:text-violet-300';
+  const hoverClass = hoverColor === 'rose' ? 'hover:text-rose-400' : 'hover:text-zinc-100';
+  const sizeClass = size === 'sm' ? '!h-6 !w-6' : '!h-7 !w-7';
   return (
-    <button
+    <IconButton
       type="button"
+      variant="ghost"
+      tone={hoverColor === 'rose' ? 'danger' : 'neutral'}
       disabled={disabled}
       onClick={(e) => {
-        // 网格卡片整卡可点击打开浮动面板，浮层按钮（复制/置顶/删除）必须阻止冒泡，
-        // 否则会同时触发外层 onOpenPanel。
         e.stopPropagation();
         if (!disabled) onClick();
       }}
       title={title}
-      className={`w-7 h-7 rounded-md inline-flex items-center justify-center bg-white/85 dark:bg-zinc-900/85 backdrop-blur ring-1 ring-black/5 dark:ring-white/10 transition disabled:opacity-40 disabled:cursor-not-allowed disabled:pointer-events-none ${
-        active ? activeMap[activeColor || 'violet'] : 'text-zinc-600 dark:text-zinc-200'
+      className={`${sizeClass} bg-white/90 dark:bg-zinc-900/90 backdrop-blur ring-1 ring-black/8 dark:ring-white/10 disabled:opacity-40 disabled:cursor-not-allowed disabled:pointer-events-none ${
+        active ? '!text-zinc-800 dark:!text-zinc-100' : '!text-zinc-600 dark:!text-zinc-300'
       } ${disabled ? '' : hoverClass}`}
     >
       {children}
-    </button>
+    </IconButton>
   );
 }

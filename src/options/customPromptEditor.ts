@@ -1,63 +1,37 @@
-import type { AppSettings } from '@/lib/types';
-import type { StrategyId } from '@/lib/strategies-meta';
+import type { AppSettings, StrategyId } from '@/lib/types';
+import { getStrategyOverrideForId, patchStrategyOverrideForId } from '@/lib/strategyOverrides';
 
-export type CustomPromptMode = 'append' | 'replace';
+export const REPLACE_INSTRUCTION_HINT =
+  '完全替代当前策略下的系统指令正文；清空或重置后恢复显示并使用策略档位与输出风格组合的默认指令。原生识别策略始终使用内置极简中文指令，不受此处影响。';
 
-export function detectCustomPromptMode(s: AppSettings): CustomPromptMode {
-  if (s.customInstruction?.trim()) return 'replace';
-  return 'append';
+export function readReplaceInstruction(s: AppSettings, strategyId?: StrategyId): string {
+  const id = strategyId ?? s.promptStrategy;
+  return getStrategyOverrideForId(s, id)?.instruction ?? '';
 }
 
-export function readCustomPromptText(s: AppSettings, mode: CustomPromptMode): string {
-  return mode === 'replace' ? (s.customInstruction ?? '') : (s.customPromptTemplate ?? '');
-}
-
-/** 互斥写入：append → customPromptTemplate；replace → customInstruction */
-export function writeCustomPromptText(
+export function writeReplaceInstruction(
   s: AppSettings,
-  mode: CustomPromptMode,
   text: string,
+  strategyId?: StrategyId,
 ): AppSettings {
-  if (mode === 'replace') {
-    return {
-      ...s,
-      customInstruction: text.trim() || undefined,
-      customPromptTemplate: '',
-    };
+  const id = strategyId ?? s.promptStrategy;
+  const trimmed = text.trim();
+  const prev = getStrategyOverrideForId(s, id) ?? {};
+  const nextOv = { ...prev };
+  if (trimmed) {
+    nextOv.instruction = trimmed;
+  } else {
+    delete nextOv.instruction;
   }
+  const patched = patchStrategyOverrideForId(
+    s,
+    id,
+    Object.keys(nextOv).length > 0 ? nextOv : null,
+    { replace: true },
+  );
   return {
-    ...s,
-    customPromptTemplate: text,
-    customInstruction: undefined,
-  };
-}
-
-export function switchCustomPromptMode(
-  s: AppSettings,
-  fromMode: CustomPromptMode,
-  toMode: CustomPromptMode,
-): AppSettings {
-  if (fromMode === toMode) return s;
-  const text = readCustomPromptText(s, fromMode);
-  return writeCustomPromptText(s, toMode, text);
-}
-
-/**
- * 离开「自定义组合」时：将 replace 正文迁入 append 字段，避免静默失效。
- */
-export function migrateSettingsForBuiltinStrategy(settings: AppSettings): AppSettings {
-  if (settings.promptStrategy === 'custom') return settings;
-  const instruction = settings.customInstruction?.trim();
-  if (!instruction) {
-    if (settings.customInstruction === undefined) return settings;
-    return { ...settings, customInstruction: undefined };
-  }
-  const existing = settings.customPromptTemplate?.trim() ?? '';
-  const template = existing ? `${existing}\n\n${instruction}` : instruction;
-  return {
-    ...settings,
-    customPromptTemplate: template,
-    customInstruction: undefined,
+    ...patched,
+    customPromptTemplate: '',
   };
 }
 
@@ -65,26 +39,15 @@ export function applyPromptStrategyChange(
   settings: AppSettings,
   newStrategyId: StrategyId,
 ): AppSettings {
-  return migrateSettingsForBuiltinStrategy({
+  return {
     ...settings,
     promptStrategy: newStrategyId,
-  });
+  };
 }
 
 /** 策略页指纹 / 摘要一行 */
-export function briefCustomPromptSummary(s: AppSettings): string | null {
-  if (s.customInstruction?.trim()) {
-    const n = s.customInstruction.trim().length;
-    return `替换指令 · ${n} 字`;
-  }
-  const t = s.customPromptTemplate?.trim();
-  if (!t) return null;
-  const preview = t.length > 28 ? `${t.slice(0, 28)}…` : t;
-  return `追加：${preview}`;
+export function briefCustomPromptSummary(s: AppSettings, strategyId?: StrategyId): string | null {
+  const instruction = readReplaceInstruction(s, strategyId).trim();
+  if (!instruction) return null;
+  return `替换指令 · ${instruction.length} 字`;
 }
-
-export const CUSTOM_PROMPT_MODE_HINT: Record<CustomPromptMode, string> = {
-  append:
-    '叠在当前策略的系统提示上；拼接位置由策略版本决定（高保真档前置、经典档以「额外要求：」追加）。',
-  replace: '完全替代所选指令集正文，四种输出风格共用同一段；仅在选择「自定义组合」时可用。',
-};

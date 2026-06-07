@@ -2,7 +2,7 @@ import { normalizeOneClickRefineRandomness } from '@/lib/oneClickRefine';
 import type { OneClickRefineRandomness } from '@/lib/types';
 import { runPanelAction } from '../panelActionBridge';
 import { IconHtml } from './IconHtml';
-import { ICON_COPY, ICON_REFRESH, ICON_SAVE } from '../icons';
+import { ICON_COPY, ICON_SAVE, ICON_SPARK } from '../icons';
 import { OneClickRefineRandomnessDropdown } from './OneClickRefineRandomnessDropdown';
 
 export type ActionsBarProps = {
@@ -11,8 +11,9 @@ export type ActionsBarProps = {
   canCopy?: boolean;
   oneClickRefineRandomness?: OneClickRefineRandomness;
   oneClickRefineControlsDisabled?: boolean;
-  /** 提示词库页内面板不展示「重新生成」 */
-  hideRetry?: boolean;
+  refining?: boolean;
+  runRefineDisabled?: boolean;
+  runRefineIdleLabel?: string;
 };
 
 export function ActionsBar({
@@ -21,12 +22,18 @@ export function ActionsBar({
   canCopy,
   oneClickRefineRandomness,
   oneClickRefineControlsDisabled,
-  hideRetry,
+  refining,
+  runRefineDisabled,
+  runRefineIdleLabel,
 }: ActionsBarProps) {
   const isLoading = !!loading;
+  const isRefining = !!refining;
   const copyEnabled = canCopy ?? !isLoading;
   const rr = normalizeOneClickRefineRandomness(oneClickRefineRandomness);
   const oneClickRefineDisabled = isLoading || !!oneClickRefineControlsDisabled;
+  const showSave = !isLoading && dirty;
+  const runRefineBtnDisabled = isRefining || !!runRefineDisabled;
+  const runRefineLabel = isRefining ? '调整中…' : (runRefineIdleLabel ?? '让 AI 调整');
 
   const oneClickRefineBtn = (
     <button
@@ -51,39 +58,52 @@ export function ActionsBar({
 
   return (
     <div className="actions">
-      {!hideRetry ? (
+      <div className="actions-cluster actions-cluster-secondary">
+        {oneClickRefineControl}
+        {showSave ? (
+          <button
+            type="button"
+            className="btn ghost actions-save-btn"
+            data-action="save"
+            onClick={(e) => runPanelAction('save', e.currentTarget, e.nativeEvent)}
+          >
+            <IconHtml html={ICON_SAVE} />
+            <span>保存为新版本</span>
+          </button>
+        ) : null}
+      </div>
+      <div className="actions-cluster actions-cluster-primary">
         <button
           type="button"
-          className="btn ghost"
-          data-action="retry"
-          onClick={(e) => runPanelAction('retry', e.currentTarget, e.nativeEvent)}
+          className="btn secondary"
+          data-action="run-refine"
+          disabled={runRefineBtnDisabled}
+          onClick={(e) => runPanelAction('run-refine', e.currentTarget, e.nativeEvent)}
         >
-          <IconHtml html={ICON_REFRESH} />
-          <span>重新生成</span>
+          {isRefining ? (
+            <>
+              <span className="spinner" />
+              <span>{runRefineLabel}</span>
+            </>
+          ) : (
+            <>
+              <IconHtml html={ICON_SPARK} />
+              <span>{runRefineLabel}</span>
+            </>
+          )}
         </button>
-      ) : null}
-      {oneClickRefineControl}
-      <button
-        type="button"
-        className={`btn ${!isLoading && dirty ? 'primary' : 'ghost disabled'}`}
-        data-action="save"
-        disabled={isLoading || !dirty}
-        onClick={(e) => runPanelAction('save', e.currentTarget, e.nativeEvent)}
-      >
-        <IconHtml html={ICON_SAVE} />
-        <span>保存为新版本</span>
-      </button>
-      <button
-        type="button"
-        className={`btn primary${copyEnabled ? '' : ' disabled'}`}
-        data-action="copy"
-        data-role="copy-button"
-        disabled={!copyEnabled}
-        onClick={(e) => runPanelAction('copy', e.currentTarget, e.nativeEvent)}
-      >
-        <IconHtml html={ICON_COPY} />
-        <span>复制</span>
-      </button>
+        <button
+          type="button"
+          className={`btn primary${copyEnabled ? '' : ' disabled'}`}
+          data-action="copy"
+          data-role="copy-button"
+          disabled={!copyEnabled}
+          onClick={(e) => runPanelAction('copy', e.currentTarget, e.nativeEvent)}
+        >
+          <IconHtml html={ICON_COPY} />
+          <span>复制</span>
+        </button>
+      </div>
     </div>
   );
 }

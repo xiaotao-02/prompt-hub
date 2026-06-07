@@ -34,9 +34,7 @@ function StackedThumb({
         : 'relative h-24 w-24 flex-none overflow-hidden rounded-lg bg-zinc-100 dark:bg-zinc-800';
 
   const stackAreaClass =
-    size === 'full'
-      ? 'relative h-[75%] max-h-[85%] w-[72%] max-w-[280px]'
-      : 'relative h-full w-full';
+    size === 'full' ? 'relative h-[75%] max-h-[85%] w-[72%] max-w-full' : 'relative h-full w-full';
 
   return (
     <div className={outerClass}>
@@ -83,7 +81,7 @@ export function Thumb({ item, size }: { item: HistoryItem; size: 'md' | 'lg' | '
         ? 'flex h-28 w-28 flex-none items-center justify-center rounded-lg bg-zinc-100 text-zinc-400 dark:bg-zinc-800'
         : 'flex h-24 w-24 flex-none items-center justify-center rounded-lg bg-zinc-100 text-zinc-400 dark:bg-zinc-800';
   const placeholderIconCls =
-    size === 'full' ? 'h-7 w-7 text-zinc-300 dark:text-zinc-600' : 'h-5 w-5 text-zinc-400';
+    size === 'full' ? 'h-6 w-6 text-zinc-300 dark:text-zinc-600' : 'h-5 w-5 text-zinc-400';
 
   if (multi) {
     if (failed) {

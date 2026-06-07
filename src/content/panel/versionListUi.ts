@@ -1,4 +1,4 @@
-import type { OneClickRefineRandomness, StrategyId } from '@/lib/types';
+import type { OneClickRefineRandomness, OutputStyle, StrategyId } from '@/lib/types';
 import {
   normalizeOneClickRefineRandomness,
   ONE_CLICK_REFINE_RANDOMNESS_LABELS,
@@ -66,12 +66,30 @@ export function patchVideoPickerSelection(root: HTMLElement, index: number): voi
   setComposeSelectedVideoIndex(index);
 }
 
+export function applyStoredActiveModel(provider: string, model: string): void {
+  const st = currentState;
+  if (!st || !panel) return;
+  if (st.status !== 'success' && st.status !== 'loading' && st.status !== 'compose') return;
+  if (st.provider === provider && st.model === model) return;
+  const next = commitPanelEvent({ type: 'ui.model', model, provider });
+  if (next) renderPanel(next);
+}
+
 export function applyStoredPromptStrategy(strategy: StrategyId): void {
   const st = currentState;
   if (!st || !panel) return;
   if (st.status !== 'success' && st.status !== 'loading' && st.status !== 'compose') return;
   if (st.strategy === strategy) return;
   const next = commitPanelEvent({ type: 'ui.strategy', strategy });
+  if (next) renderPanel(next);
+}
+
+export function applyStoredOutputStyle(outputStyle: OutputStyle): void {
+  const st = currentState;
+  if (!st || !panel) return;
+  if (st.status !== 'success' && st.status !== 'loading' && st.status !== 'compose') return;
+  if (st.outputStyle === outputStyle) return;
+  const next = commitPanelEvent({ type: 'ui.outputStyle', outputStyle });
   if (next) renderPanel(next);
 }
 

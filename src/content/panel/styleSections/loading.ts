@@ -11,7 +11,7 @@ export const loadingCss = `
 /* 旧的"无方向滑块"：仅在没设 progress 时 fallback，目前不再使用。 */
 .bar:not(.progress) span {
   position: absolute; left: -40%; top: 0; width: 40%; height: 100%;
-  background: linear-gradient(90deg,#6366f1,#8b5cf6);
+  background: linear-gradient(90deg, var(--pe-accent), var(--pe-accent-hover));
   animation: slide 1.4s infinite;
 }
 @keyframes slide {
@@ -51,41 +51,38 @@ export const loadingCss = `
   font-weight: 500;
   color: var(--pe-accent);
 }
-@media (prefers-color-scheme: dark) {
-  .hint-row .elapsed { color: #c4b5fd; }
-}
 
 .stream-preview {
   display: flex;
   flex-direction: column;
-  animation: fadeIn .2s ease-out;
+  animation: fadeIn var(--pe-duration-base) var(--pe-ease-standard);
 }
 .stream-preview.hidden { display: none; }
+.panel-content-enter {
+  animation: fadeIn var(--pe-duration-base) var(--pe-ease-standard);
+}
 @keyframes fadeIn {
   from { opacity: 0; transform: translateY(-4px); }
   to { opacity: 1; transform: translateY(0); }
 }
 .prompt-text.streaming {
   min-height: 220px; max-height: 460px;
-  background: linear-gradient(180deg, rgba(99,102,241,0.04), rgba(139,92,246,0.03));
-  border-color: rgba(99,102,241,0.25);
+  background: color-mix(in srgb, var(--pe-accent-soft) 55%, var(--pe-bg-muted));
+  border-color: color-mix(in srgb, var(--pe-accent) 28%, var(--pe-border-strong));
   cursor: default;
-}
-@media (prefers-color-scheme: dark) {
-  .prompt-text.streaming {
-    background: linear-gradient(180deg, rgba(139,92,246,0.08), rgba(99,102,241,0.04));
-    border-color: rgba(139,92,246,0.30);
-  }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .panel,
   .panel.library-closing,
   .panel.sidebar-transition,
-  .refine-slot,
   .versions-side,
-  .refine-box,
   .stream-preview,
+  .panel-content-enter,
+  .sd-menu,
+  .version-item--rail[data-source="pending"]::after,
+  .versions-side.versions-compact .version-item--rail[data-source="pending"]::after,
+  .compose-filmstrip.is-loading::after,
   .bar.progress span,
   .bar.progress span::after,
   .spinner,

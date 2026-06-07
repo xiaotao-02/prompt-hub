@@ -113,7 +113,7 @@ export function FolderTree(props: FolderTreeProps) {
         </h2>
         <button
           onClick={onCreateProject}
-          className="inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded-md text-zinc-500 hover:text-violet-600 dark:hover:text-violet-300 hover:bg-violet-50 dark:hover:bg-violet-500/10 transition"
+          className="inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded-md text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800/60 transition"
           title="新建项目"
         >
           <Plus className="w-3.5 h-3.5" /> 新建项目
@@ -157,7 +157,7 @@ export function FolderTree(props: FolderTreeProps) {
           还没有项目
           <button
             onClick={onCreateProject}
-            className="block mx-auto mt-2 inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded-md text-violet-600 dark:text-violet-300 hover:bg-violet-50 dark:hover:bg-violet-500/10 transition"
+            className="block mx-auto mt-2 inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded-md text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800/60 transition"
           >
             <FolderPlus className="w-3.5 h-3.5" /> 创建第一个项目
           </button>
@@ -237,7 +237,7 @@ function SystemNodeRow({
         active
           ? 'bg-violet-100 dark:bg-violet-500/15 text-violet-700 dark:text-violet-200 font-medium'
           : 'text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800/60'
-      } ${hover ? 'ring-2 ring-violet-400/60' : ''}`}
+      } ${hover ? 'ring-1 ring-zinc-400/50 dark:ring-zinc-500/40' : ''}`}
     >
       <span className="text-zinc-400 dark:text-zinc-500 flex-none">{icon}</span>
       <span className="flex-1 text-left truncate">{label}</span>
@@ -309,7 +309,7 @@ function FolderNodeView({
           active
             ? 'bg-violet-100 dark:bg-violet-500/15 text-violet-700 dark:text-violet-200'
             : 'text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800/60'
-        } ${dropHover ? 'ring-2 ring-violet-400/60' : ''}`}
+        } ${dropHover ? 'ring-1 ring-zinc-400/50 dark:ring-zinc-500/40' : ''}`}
         style={{ paddingLeft: depth * 12 + 4 }}
       >
         {/* 展开箭头：仅在有子节点时可点；没有子节点时占位 */}
@@ -344,9 +344,9 @@ function FolderNodeView({
               aria-hidden="true"
             />
           ) : expanded && hasChildren ? (
-            <FolderOpen className="w-3.5 h-3.5 text-amber-500 flex-none" />
+            <FolderOpen className="w-3.5 h-3.5 text-zinc-400 dark:text-zinc-500 flex-none" />
           ) : (
-            <Folder className="w-3.5 h-3.5 text-amber-500 flex-none" />
+            <Folder className="w-3.5 h-3.5 text-zinc-400 dark:text-zinc-500 flex-none" />
           )}
           <span className={`truncate ${isProject ? 'font-semibold' : ''}`}>{folder.name}</span>
         </button>
@@ -364,7 +364,7 @@ function FolderNodeView({
               onCreateChild(folder.id);
             }}
             title="在此新建子文件夹"
-            className="p-1 rounded hover:bg-zinc-200/70 dark:hover:bg-zinc-700/60 text-zinc-400 hover:text-violet-600 dark:hover:text-violet-300"
+            className="p-1 rounded hover:bg-zinc-200/70 dark:hover:bg-zinc-700/60 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200"
           >
             <FolderPlus className="w-3.5 h-3.5" />
           </button>

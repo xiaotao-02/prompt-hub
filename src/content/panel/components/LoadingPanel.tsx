@@ -9,6 +9,7 @@ import {
   extractStreamModeForUi,
 } from '../loading';
 import { loadingEditorDisplayedText } from '../editorText';
+import { ModelDropdown } from './ModelDropdown';
 import { PanelHeader } from './PanelHeader';
 import { ReferenceStrip } from './ReferenceStrip';
 import { PromptEditor } from './PromptEditor';
@@ -33,9 +34,6 @@ export function LoadingPanel({ state }: LoadingPanelProps) {
   const pct = Math.round(stageProgress(state.stage, hasPartial) * 100);
   const elapsed = state.startedAt != null ? formatElapsed(Date.now() - state.startedAt) : '0.0s';
   const stratLabel = strategyLabel(state.strategy);
-  const modelLabel = state.model
-    ? `${state.provider ? `${state.provider} · ` : ''}${state.model}`
-    : '';
   const canCopyLoading = hasPartial || !!state.extractBaselinePrompt?.trim();
   const loadingEditorBody = loadingEditorDisplayedText(state);
   const { openClassSuffix } = versionsRowChrome(state, versions);
@@ -47,13 +45,7 @@ export function LoadingPanel({ state }: LoadingPanelProps) {
         title={<span data-role="stage-label">{stageLabel(state.stage)}</span>}
         badges={
           <>
-            <span
-              className={`badge model-badge${modelLabel ? '' : ' hidden'}`}
-              data-role="model-badge"
-              title={modelLabel ? `本次使用：${modelLabel}` : undefined}
-            >
-              {modelLabel || ''}
-            </span>
+            <ModelDropdown state={state} />
             <span
               className={`badge strategy-badge${stratLabel ? '' : ' hidden'}`}
               data-role="strategy-badge"
@@ -99,8 +91,15 @@ export function LoadingPanel({ state }: LoadingPanelProps) {
             disableHistory={versionCount === 0}
             disableLibrary
           />
-          <RefineBlock state={state} runDisabled runIdleLabel="生成后可调整" />
-          <ActionsBar loading canCopy={canCopyLoading} dirty={false} />
+          <RefineBlock state={state} />
+          <ActionsBar
+            loading
+            canCopy={canCopyLoading}
+            dirty={false}
+            refining={false}
+            runRefineDisabled
+            runRefineIdleLabel="生成后可调整"
+          />
         </div>
       </div>
     </>

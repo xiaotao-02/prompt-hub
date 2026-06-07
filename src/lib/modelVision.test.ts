@@ -2,7 +2,9 @@ import { describe, expect, it } from 'vitest';
 import {
   buildVisionById,
   classifyModel,
+  dedupePlatformDiscoveredModels,
   getProviderVisionDisplay,
+  migratePlatformModelId,
   partitionByVision,
   shouldBlockExtract,
 } from './modelVision';
@@ -83,5 +85,26 @@ describe('getProviderVisionDisplay', () => {
     expect(d.source).toBe('discovered');
     expect(d.visionTotal).toBe(1);
     expect(d.noVisionTotal).toBe(1);
+  });
+});
+
+describe('platform model id migration', () => {
+  it('migratePlatformModelId strips legacy upstream prefix', () => {
+    expect(migratePlatformModelId('tokenrouter/gpt-3.5')).toBe('gpt-3.5');
+    expect(migratePlatformModelId('gpt-3.5')).toBe('gpt-3.5');
+  });
+
+  it('dedupePlatformDiscoveredModels merges prefixed duplicates and keeps best vision', () => {
+    const { models, visionById } = dedupePlatformDiscoveredModels(
+      ['up-a/gpt-3.5', 'up-b/gpt-3.5', 'up-c/gpt-4o'],
+      {
+        'up-a/gpt-3.5': 'no_vision',
+        'up-b/gpt-3.5': 'vision',
+        'up-c/gpt-4o': 'vision',
+      },
+    );
+    expect(models).toEqual(['gpt-3.5', 'gpt-4o']);
+    expect(visionById['gpt-3.5']).toBe('vision');
+    expect(visionById['gpt-4o']).toBe('vision');
   });
 });

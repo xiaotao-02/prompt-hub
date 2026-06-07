@@ -29,4 +29,10 @@ describe('strategies v036 default', () => {
     expect(STRATEGY_LABELS.v036).toBe('v0.3.6 通用高还原');
     expect(getStrategyList().map((strategy) => strategy.id)).toContain('v036');
   });
+
+  it('includes json and natural-ja output styles in default strategy prompts', () => {
+    const strategy = getStrategy('v036');
+    expect(strategy.stylePrompts.json).toContain('valid JSON object');
+    expect(strategy.stylePrompts['natural-ja']).toContain('日本語');
+  });
 });

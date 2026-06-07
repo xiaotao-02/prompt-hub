@@ -4,9 +4,11 @@ import { panel, currentState } from '../state';
 import {
   manageLoadingStallWatchdog,
   manageLoadingTicker,
+  manageRefineStallWatchdog,
   manageRefineTicker,
   stopLoadingStallWatchdog,
   stopLoadingTicker,
+  stopRefineStallWatchdog,
   stopRefineTicker,
 } from '../loading';
 import { shouldPanelContentAutofocus } from '../focusPolicy';
@@ -32,10 +34,12 @@ export function usePanelEffects(state: PanelState, prevStatus: PanelState['statu
     manageLoadingTicker(state);
     manageLoadingStallWatchdog(state);
     manageRefineTicker(state);
+    manageRefineStallWatchdog(state);
     return () => {
       stopLoadingTicker();
       stopLoadingStallWatchdog();
       stopRefineTicker();
+      stopRefineStallWatchdog();
     };
   }, [state]);
 

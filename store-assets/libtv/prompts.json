@@ -50,7 +50,7 @@
       "out": "screenshots/screenshot-4-settings.png",
       "width": 1280,
       "height": 800,
-      "prompt": "Chrome Web Store screenshot 1280x800 for Prompt Hub options page. Near-black canvas #0a0a0f, purple glow, faint logo watermark. Top eyebrow: Options Page. Headline: 粘贴 Key，快速开始. Center: large pixel-perfect white settings card — header Prompt Hub · 设置 with tabs 设置 提示词库 and green badge 已保存. Purple summary bar 智谱 GLM · glm-4v-flash and note API Key 已配置 · 跨设备 sync 同步. Recommended provider chips OpenAI 智谱 GLM 通义千问 SiliconFlow. Field label 粘贴 API Key 或 curl 一键导入 with masked sk-dots input. MODEL dropdown showing glm-4v-flash. Clean SaaS form UI, purple #7c3aed accents, no cyan/amber honeycomb theme, no browser chrome. Keep all text and UI within central 90% safe margins; leave generous empty padding on all edges for crop."
+      "prompt": "Chrome Web Store screenshot 1280x800 for Prompt Hub options page settings. Near-black canvas #0a0a0f, purple glow, faint logo watermark. Top eyebrow: Options Page. Headline: 粘贴 Key，快速开始. Center: large pixel-perfect white settings card — header Prompt Hub · 设置 with tabs 设置 提示词库 and green badge 已保存. NO provider brand logos, NO recommended provider chips, NO vendor grid. Show only generic settings form: field label 粘贴 API Key 或 curl 一键导入 with masked sk-dots input, MODEL dropdown glm-4v-flash, output style row 自然语言·中文 SD Tag Midjourney, language toggle 中文/English, small note API Key 已配置 · 跨设备 sync 同步. Clean minimal SaaS form UI, purple #7c3aed accents, no cyan/amber honeycomb theme, no browser chrome. Keep all text and UI within central 90% safe margins; leave generous empty padding on all edges for crop."
     },
     {
       "node": "shot-5-providers",
@@ -77,6 +77,15 @@
       "height": 800,
       "storeAsset": false,
       "prompt": "Chrome Web Store screenshot 1280x800 for Prompt Hub options page prompt library. Near-black canvas #0a0a0f, purple #7c3aed radial glow, faint logo watermark. Top eyebrow: Prompt Library. Headline: 文件夹管理，大图编辑，AI 调整. Center: large pixel-perfect white options page mock — header Prompt Hub with tabs 设置 and 提示词库 active, green badge 已保存. Left sidebar folder tree: 未分类 人像 场景 材质 with purple highlight on active folder. Main grid: 3 prompt cards with square thumbnail previews, Chinese titles, version chips v2 v3. Purple buttons 新建文件夹 AI 调整 复制. Dark-violet SaaS marketing style, purple accents, no cyan/amber honeycomb theme, no browser chrome. Keep all text and UI within central 90% safe margins; leave generous empty padding on all edges for crop."
+    },
+    {
+      "node": "icon-gen",
+      "ratio": "1:1",
+      "out": "icon-gen/icon-raw.png",
+      "width": 1024,
+      "height": 1024,
+      "storeAsset": false,
+      "prompt": "App icon for Prompt Hub Chrome extension. Dark near-black background #0a0a0f with iOS-style rounded square frame. Centered 3D geometric low-poly crystal prism composed of triangular facet planes, cold blue #3b82f6 and warm white light refraction highlights from upper-left source, deep shadow on lower-right. Subtle inner glow on facet edges. No text, no honeycomb hexagons, no decorative background gradient. Flat dark fill outside shape. Clean modern premium icon, high contrast, sharp edges, centered composition filling 70% of frame."
     }
   ]
 }

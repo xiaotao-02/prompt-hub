@@ -19,6 +19,8 @@ import { trimSlash } from '../url';
 import {
   emitBufferedExtractProgress,
   emitBufferedRefineProgress,
+  revealBufferedExtractProgress,
+  revealBufferedRefineProgress,
   safeProgress,
   safeRefineProgress,
   type ExtractProgressFn,
@@ -31,6 +33,7 @@ export async function callGemini(
   instruction: string,
   strategy: PromptStrategy,
   onProgress?: ExtractProgressFn,
+  signal?: AbortSignal,
 ): Promise<string> {
   // Gemini 的流式端点是独立 path：:streamGenerateContent?alt=sse
   // 加 alt=sse 才会真正以 SSE 推送，否则会拼成一个 JSON 数组一次性返回。
@@ -64,6 +67,7 @@ export async function callGemini(
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Accept: 'text/event-stream' },
     body: JSON.stringify(body),
+    ...(signal ? { signal } : {}),
   });
   if (!resp.ok) {
     throw new Error(await describeRespFailure(resp, 'Gemini'));
@@ -90,7 +94,7 @@ export async function callGemini(
       }
     }
     if (!acc) throw new Error('Gemini 返回内容异常');
-    emitBufferedExtractProgress(onProgress, acc);
+    await revealBufferedExtractProgress(onProgress, acc, signal);
     return acc;
   }
 
@@ -181,7 +185,7 @@ export async function callGeminiText(
     const parts = json?.candidates?.[0]?.content?.parts;
     if (!Array.isArray(parts)) throw new Error('Gemini 返回内容异常');
     const final = parts.map((p: { text?: string }) => p.text || '').join('');
-    emitBufferedRefineProgress(onProgress, final);
+    await revealBufferedRefineProgress(onProgress, final);
     return final;
   }
 

@@ -1,10 +1,33 @@
-import type { OneClickRefineRandomness, StrategyId } from '@/lib/types';
+import type { OneClickRefineRandomness, OutputStyle, StrategyId } from '@/lib/types';
 import type { PanelState } from '../state';
 import type { PanelStateTransition } from './panelEvents';
 
 export function applyUiStrategy(state: PanelState, strategy: StrategyId): PanelStateTransition {
   if (state.strategy === strategy) return { changed: false, state };
   return { changed: true, state: { ...state, strategy } };
+}
+
+export function applyUiModel(
+  state: PanelState,
+  model: string,
+  provider?: string,
+): PanelStateTransition {
+  const nextProvider = provider ?? state.provider;
+  if (state.model === model && state.provider === nextProvider) {
+    return { changed: false, state };
+  }
+  return {
+    changed: true,
+    state: { ...state, model, provider: nextProvider },
+  };
+}
+
+export function applyUiOutputStyle(
+  state: PanelState,
+  outputStyle: OutputStyle,
+): PanelStateTransition {
+  if (state.outputStyle === outputStyle) return { changed: false, state };
+  return { changed: true, state: { ...state, outputStyle } };
 }
 
 export function applyUiOneClickRefineRandomness(

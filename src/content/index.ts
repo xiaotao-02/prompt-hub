@@ -1,4 +1,5 @@
-import type { OneClickRefineRandomness, RuntimeMessage, StrategyId } from '@/lib/types';
+import type { AppSettings, ProviderId, RuntimeMessage } from '@/lib/types';
+import { isOutputStyle } from '@/lib/strategies-meta';
 import { postCtxMenuPrepViaKeepalivePort } from '@/content/bgPort';
 import { normalizeOneClickRefineRandomness } from '@/lib/oneClickRefine';
 import { SETTINGS_KEY } from '@/lib/storage/keys';
@@ -12,7 +13,9 @@ import {
   closePanel,
   applyHistoryReady,
   applyHistoryPrefetch,
+  applyStoredActiveModel,
   applyStoredPromptStrategy,
+  applyStoredOutputStyle,
   applyStoredOneClickRefineRandomness,
   applyStoredPanelAutofocus,
   appendReferenceFromBackground,
@@ -24,7 +27,10 @@ import {
   abortRegionCaptureIfActive,
 } from '@/content/regionCapture';
 import { isExtensionContextValid, safeSendMessage } from '@/content/extensionBridge';
+import { installSurfaceErrorLogger } from '@/lib/surfaceErrorLogger';
 import { computeCtxMenuPrep } from '@/content/mediaHit';
+
+installSurfaceErrorLogger('content');
 
 export { safeSendMessage } from '@/content/extensionBridge';
 
@@ -60,6 +66,7 @@ try {
         imageUrl: message.payload.imageUrl,
         imageUrls: message.payload.imageUrls,
         strategy: message.payload.strategy,
+        outputStyle: message.payload.outputStyle,
         oneClickRefineRandomness: message.payload.oneClickRewriteRandomness,
       });
       return false;
@@ -70,6 +77,7 @@ try {
         partial: message.payload.partial,
         streamMode: message.payload.streamMode,
         strategy: message.payload.strategy,
+        outputStyle: message.payload.outputStyle,
         provider: message.payload.provider,
         model: message.payload.model,
         oneClickRefineRandomness: message.payload.oneClickRewriteRandomness,
@@ -143,6 +151,7 @@ try {
           model: item.model,
           versions: item.versions,
           strategy: item.strategy,
+          outputStyle: item.style,
           oneClickRefineRandomness: normalizeOneClickRefineRandomness(
             message.payload.oneClickRewriteRandomness,
           ),
@@ -172,16 +181,18 @@ try {
   chrome.storage.onChanged.addListener((changes, _area) => {
     const ch = changes[SETTINGS_KEY];
     if (!ch?.newValue || typeof ch.newValue !== 'object') return;
-    const nv = ch.newValue as {
-      promptStrategy?: StrategyId;
-      oneClickRewriteRandomness?: OneClickRefineRandomness;
-      panelAutofocus?: boolean;
-    };
+    const nv = ch.newValue as Partial<AppSettings>;
     const ps = nv.promptStrategy;
+    const os = nv.outputStyle;
     const rr = nv.oneClickRewriteRandomness;
     if (ps != null) applyStoredPromptStrategy(ps);
+    if (os != null && isOutputStyle(os)) applyStoredOutputStyle(os);
     if (rr != null) applyStoredOneClickRefineRandomness(normalizeOneClickRefineRandomness(rr));
     if ('panelAutofocus' in nv) applyStoredPanelAutofocus(nv.panelAutofocus);
+    const ap = nv.activeProvider;
+    if (ap != null && nv.providers?.[ap]?.model != null) {
+      applyStoredActiveModel(ap, nv.providers[ap as ProviderId].model);
+    }
   });
 } catch {
   // Extension context already invalidated at registration time

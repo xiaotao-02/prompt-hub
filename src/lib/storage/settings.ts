@@ -2,7 +2,9 @@ import { ensureVisionById } from '../modelVision';
 import type { AppSettings, ProviderConfig, ProviderId } from '../types';
 import { DEFAULT_ONE_CLICK_REFINE_RANDOMNESS } from '../oneClickRefine';
 import { PROVIDERS } from '../providers';
-import { DEFAULT_STRATEGY_ID } from '../strategies';
+import { migrateLegacyStrategyOverrides } from '../strategyOverrides';
+import { DEFAULT_OUTPUT_STYLE, isOutputStyle, type StrategyId } from '../strategies-meta';
+import { DEFAULT_STRATEGY_ID, STRATEGIES } from '../strategies';
 import { DEFAULT_UPDATE_SETTINGS } from '../updater';
 import { coerceByokProviderId } from '../../../scripts/byok/migrateSettings';
 
@@ -91,6 +93,8 @@ async function writeDiscoveredMap(map: DiscoveredMap): Promise<void> {
   await chrome.storage.local.set({ [DISCOVERED_KEY]: map });
 }
 
+export type StorageWriteResult = { ok: true } | { ok: false; error: string };
+
 export async function getSettings(): Promise<AppSettings> {
   const [syncData, discovered] = await Promise.all([
     chrome.storage.sync.get(SETTINGS_KEY),
@@ -135,23 +139,39 @@ export async function getSettings(): Promise<AppSettings> {
     lastCheckedAt: storedUpdates.lastCheckedAt ?? base.updates.lastCheckedAt,
     lastResult: storedUpdates.lastResult ?? base.updates.lastResult,
   };
+  const outputStyle =
+    stored?.outputStyle != null && isOutputStyle(stored.outputStyle)
+      ? stored.outputStyle
+      : DEFAULT_OUTPUT_STYLE;
+
+  const rawStrategy = stored?.promptStrategy;
+  const promptStrategy: StrategyId =
+    rawStrategy && rawStrategy in STRATEGIES ? (rawStrategy as StrategyId) : base.promptStrategy;
+
+  const strategyOverrides = migrateLegacyStrategyOverrides(stored ?? {}, promptStrategy);
+
   const activeProvider = coerceByokProviderId(
     stored?.activeProvider,
     validProviderIds,
-    base.activeProvider
+    base.activeProvider,
   );
   const refineProviderRaw = stored?.refineProvider;
   const refineProvider =
     refineProviderRaw == null
       ? undefined
       : coerceByokProviderId(refineProviderRaw, validProviderIds, activeProvider);
+
   return {
     ...base,
     ...(stored || {}),
+    outputStyle,
+    promptStrategy,
+    strategyOverrides: strategyOverrides ?? stored?.strategyOverrides,
     activeProvider,
     refineProvider: refineProvider === activeProvider ? undefined : refineProvider,
     providers: mergedProviders,
     updates: mergedUpdates,
+    ...(stored?.refineModel !== undefined ? { refineModel: stored.refineModel } : {}),
   };
 }
 
@@ -164,41 +184,48 @@ export async function getSettings(): Promise<AppSettings> {
  * 如果 sync 写入仍然失败（例如总配额 100KB 用完，或网络异常），会自动回退到 local，
  * 避免「点了保存看起来成功，重启后回滚」的隐患。
  */
-export async function saveSettings(settings: AppSettings): Promise<void> {
-  const slim = stripBulky(settings);
-  // 1) 写 discoveredModels 到 local（体积无忧）
-  const map: DiscoveredMap = {};
-  for (const id of Object.keys(settings.providers) as ProviderId[]) {
-    const cfg = settings.providers[id];
-    if (cfg.discoveredModels && cfg.discoveredModels.length > 0) {
-      map[id] = {
-        models: cfg.discoveredModels,
-        visionById: ensureVisionById(id, cfg.discoveredModels, cfg.discoveredVisionById),
-        at: cfg.discoveredAt || Date.now(),
-      };
-    }
-  }
-  await writeDiscoveredMap(map);
-
-  // 2) 写轻量 settings 到 sync
-  let syncOk = false;
+export async function saveSettings(settings: AppSettings): Promise<StorageWriteResult> {
   try {
-    await chrome.storage.sync.set({ [SETTINGS_KEY]: slim });
-    syncOk = true;
+    const slim = stripBulky(settings);
+    // 1) 写 discoveredModels 到 local（体积无忧）
+    const map: DiscoveredMap = {};
+    for (const id of Object.keys(settings.providers) as ProviderId[]) {
+      const cfg = settings.providers[id];
+      if (cfg.discoveredModels && cfg.discoveredModels.length > 0) {
+        map[id] = {
+          models: cfg.discoveredModels,
+          visionById: ensureVisionById(id, cfg.discoveredModels, cfg.discoveredVisionById),
+          at: cfg.discoveredAt || Date.now(),
+        };
+      }
+    }
+    await writeDiscoveredMap(map);
+
+    // 2) 写轻量 settings 到 sync
+    let syncOk = false;
+    try {
+      await chrome.storage.sync.set({ [SETTINGS_KEY]: slim });
+      syncOk = true;
+    } catch (err) {
+      // 极端情况：sync 总配额耗尽，转写 local 保底，保证用户的 API Key 永远不丢
+      console.warn('[PromptHub] sync set failed, falling back to local', err);
+      await chrome.storage.local.set({ [SETTINGS_KEY]: slim });
+    }
+
+    // sync 写成功后，清掉之前可能 fallback 残留在 local 的旧值，避免下次 getSettings
+    // 读取分歧。这里**不再** sync.get 二次确认（写成功的 set 已经够说明问题），省一次
+    // 跨进程往返；清 local 失败也无关紧要（local 没有旧值就什么也不会发生）。
+    if (syncOk) {
+      chrome.storage.local.remove(SETTINGS_KEY).catch(() => undefined);
+    }
+
+    void notifyBackupSubscribers();
+    return { ok: true };
   } catch (err) {
-    // 极端情况：sync 总配额耗尽，转写 local 保底，保证用户的 API Key 永远不丢
-    console.warn('[PromptHub] sync set failed, falling back to local', err);
-    await chrome.storage.local.set({ [SETTINGS_KEY]: slim });
+    const error = err instanceof Error ? err.message : String(err);
+    console.warn('[PromptHub] saveSettings failed', err);
+    return { ok: false, error };
   }
-
-  // sync 写成功后，清掉之前可能 fallback 残留在 local 的旧值，避免下次 getSettings
-  // 读取分歧。这里**不再** sync.get 二次确认（写成功的 set 已经够说明问题），省一次
-  // 跨进程往返；清 local 失败也无关紧要（local 没有旧值就什么也不会发生）。
-  if (syncOk) {
-    chrome.storage.local.remove(SETTINGS_KEY).catch(() => undefined);
-  }
-
-  void notifyBackupSubscribers();
 }
 
 /**

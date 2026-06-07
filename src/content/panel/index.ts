@@ -15,9 +15,13 @@ import {
   setPanel,
   setCurrentState,
   resetComposeCollectMode,
+  resetComposeVideoSegment,
   setComposeCollectMode,
+  getComposeCollectMode,
   setComposeSelectedVideoIndex,
   clampComposeSelectedVideoIndex,
+  applyDefaultComposeVideoSegment,
+  getComposeSelectedVideoIndex,
   panelActions,
   type PanelState,
   panelReferenceUrls,
@@ -27,7 +31,9 @@ import {
 import {
   stopLoadingTicker,
   stopLoadingStallWatchdog,
+  stopRefineStallWatchdog,
   stopRefineTicker,
+  manageRefineStallWatchdog,
   applyRefinePatch,
 } from './loading';
 import { bindEvents, cancelPendingDirtyChromeDeferred } from './panelShell';
@@ -38,7 +44,12 @@ export {
   renderPanelForExtractPending,
 } from './extractStream';
 
-export { applyStoredPromptStrategy, applyStoredOneClickRefineRandomness } from './panelShell';
+export {
+  applyStoredActiveModel,
+  applyStoredPromptStrategy,
+  applyStoredOutputStyle,
+  applyStoredOneClickRefineRandomness,
+} from './panelShell';
 export { patchStrategyDropdownSelection } from './strategyDisplay';
 export { applyStoredPanelAutofocus } from './focusPolicy';
 import {
@@ -48,6 +59,8 @@ import {
   scheduleStabilizePanelHeight,
   resetStableSurfaceHeight,
   maybeResetStableSurfaceForPanelStatus,
+  maybeAdjustGeometryForPanelStatus,
+  capturePanelHeightBeforeRender,
 } from './geometry';
 import { ensurePanelReactRoot, renderPanelReact, unmountPanelReact } from './panelReactRoot';
 import {
@@ -125,6 +138,10 @@ function finishRenderPanel(
   prevStatus: PanelState['status'] | null,
 ): void {
   maybeResetStableSurfaceForPanelStatus(state.status, prevStatus);
+  maybeAdjustGeometryForPanelStatus(state.status, prevStatus, {
+    refCount: panelReferenceUrls(state).length,
+    videoMode: getComposeCollectMode() === 'video' && listViewportVideos().length > 0,
+  });
   applyGeometryToPanel(root, ensureGeometry());
   bindEvents(root);
   scheduleStabilizePanelHeight();
@@ -140,6 +157,7 @@ export function renderPanel(state: PanelState): void {
   if (panel) {
     const surface = panel.querySelector(PANEL_SURFACE_SELECTOR);
     if (surface) {
+      capturePanelHeightBeforeRender();
       renderPanelSurface(panel, state, prevStatus);
       finishRenderPanel(panel, state, prevStatus);
       return;
@@ -189,11 +207,12 @@ export function openVideoReferenceFromBackground(videoIndex?: number): void {
   } else {
     clampComposeSelectedVideoIndex(listViewportVideos().length);
   }
+  applyDefaultComposeVideoSegment(getComposeSelectedVideoIndex(), { force: true });
 
   const freshCompose = (
     sessionRequestId: string,
     urls: string[],
-    inherit?: Pick<PanelState, 'strategy' | 'oneClickRefineRandomness'>,
+    inherit?: Pick<PanelState, 'strategy' | 'outputStyle' | 'oneClickRefineRandomness'>,
   ): PanelState => {
     const list = normalizeReferenceList(urls);
     const first = list[0] || '';
@@ -203,6 +222,7 @@ export function openVideoReferenceFromBackground(videoIndex?: number): void {
       imageUrls: list,
       status: 'compose',
       strategy: inherit?.strategy,
+      outputStyle: inherit?.outputStyle,
       oneClickRefineRandomness: inherit?.oneClickRefineRandomness,
     };
   };
@@ -216,6 +236,7 @@ export function openVideoReferenceFromBackground(videoIndex?: number): void {
     renderPanel(
       freshCompose(crypto.randomUUID(), [], {
         strategy: cur.strategy,
+        outputStyle: cur.outputStyle,
         oneClickRefineRandomness: cur.oneClickRefineRandomness,
       }),
     );
@@ -228,6 +249,7 @@ export function openVideoReferenceFromBackground(videoIndex?: number): void {
   renderPanel(
     freshCompose(crypto.randomUUID(), panelReferenceUrls(cur), {
       strategy: cur.strategy,
+      outputStyle: cur.outputStyle,
       oneClickRefineRandomness: cur.oneClickRefineRandomness,
     }),
   );
@@ -260,6 +282,7 @@ export function patchRefineProgress(payload: {
 
   if (refineLightUpdate && panel) {
     applyRefinePatch(merged);
+    manageRefineStallWatchdog(merged);
     return;
   }
   renderPanel(merged);
@@ -313,11 +336,13 @@ export function closePanel(): void {
   cancelPendingDirtyChromeDeferred();
   clearPendingAppendReferenceQueue();
   resetComposeCollectMode();
+  resetComposeVideoSegment();
   lastRenderedPanelStatus = null;
   resetStableSurfaceHeight();
   stopLoadingTicker();
   stopLoadingStallWatchdog();
   stopRefineTicker();
+  stopRefineStallWatchdog();
   unbindPanelOutsideClose();
   unmountPanelReact();
   if (panel) {

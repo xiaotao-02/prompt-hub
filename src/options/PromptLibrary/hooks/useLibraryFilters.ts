@@ -37,7 +37,6 @@ export function useLibraryFilters({
   const [filterProvider, setFilterProvider] = useState<string>('all');
   const [filterStyle, setFilterStyle] = useState<string>('all');
   const [sortKey, setSortKey] = useState<SortKey>('updated');
-  const [showPinnedOnly, setShowPinnedOnly] = useState(false);
   const [view, setView] = useState<ViewMode>(() => {
     try {
       const saved = localStorage.getItem(VIEW_STORAGE_KEY);
@@ -84,11 +83,10 @@ export function useLibraryFilters({
       deferredKeyword,
       filterProvider,
       filterStyle,
-      showPinnedOnly,
       selectedNode,
       sortKey,
     }),
-    [deferredKeyword, filterProvider, filterStyle, showPinnedOnly, selectedNode, sortKey],
+    [deferredKeyword, filterProvider, filterStyle, selectedNode, sortKey],
   );
 
   useEffect(() => {
@@ -160,7 +158,6 @@ export function useLibraryFilters({
         nm = source.filter((i) => i.folderId && subtree.has(i.folderId));
       }
       let result = nm.filter((i) => {
-        if (showPinnedOnly && !i.pinned) return false;
         if (filterProvider !== 'all' && i.provider !== filterProvider) return false;
         if (filterStyle !== 'all' && i.style !== filterStyle) return false;
         if (lower) {
@@ -184,15 +181,7 @@ export function useLibraryFilters({
       });
       return result;
     },
-    [
-      keyword,
-      selectedNode,
-      collectSubtreeIds,
-      showPinnedOnly,
-      filterProvider,
-      filterStyle,
-      sortKey,
-    ],
+    [keyword, selectedNode, collectSubtreeIds, filterProvider, filterStyle, sortKey],
   );
 
   const filtered = useMemo(() => filterLibraryItems(list), [list, filterLibraryItems]);
@@ -244,14 +233,12 @@ export function useLibraryFilters({
     keyword.trim() !== '' ||
     filterProvider !== 'all' ||
     filterStyle !== 'all' ||
-    showPinnedOnly ||
     selectedNode !== SYSTEM_NODE.ALL;
 
   const clearFilters = () => {
     setKeyword('');
     setFilterProvider('all');
     setFilterStyle('all');
-    setShowPinnedOnly(false);
     setSelectedNode(SYSTEM_NODE.ALL);
   };
 
@@ -283,8 +270,6 @@ export function useLibraryFilters({
     setFilterStyle,
     sortKey,
     setSortKey,
-    showPinnedOnly,
-    setShowPinnedOnly,
     view,
     setView,
     selectedNode,

@@ -211,6 +211,28 @@ function formatDurationLabel(seconds: number): string {
   }
 }
 
+/** compose 片段时间输入框展示格式（秒，无后缀）。 */
+export function formatVideoSegmentInputSec(seconds: number): string {
+  if (!Number.isFinite(seconds)) return '';
+  if (seconds >= 3600 * 48) return String(Math.round(seconds));
+  return seconds.toFixed(2).replace(/\.?0+$/, '');
+}
+
+const DEFAULT_UNKNOWN_VIDEO_DURATION_SEC = 10;
+
+/** 识别到页面视频时，默认片段区间：0 ～ duration（无效 duration 时回退固定秒数）。 */
+export function defaultVideoSegmentRange(video: HTMLVideoElement): {
+  startSec: number;
+  endSec: number;
+} {
+  const startSec = 0;
+  const duration = video.duration;
+  if (Number.isFinite(duration) && duration > 0) {
+    return { startSec, endSec: duration };
+  }
+  return { startSec, endSec: Math.max(1, startSec + DEFAULT_UNKNOWN_VIDEO_DURATION_SEC) };
+}
+
 const VIDEO_TITLE_MAX_LEN = 48;
 const MIN_ANCESTOR_LABEL_LEN = 3;
 const MAX_ANCESTOR_DEPTH = 6;
@@ -271,6 +293,43 @@ export function inferVideoDisplayTitle(video: HTMLVideoElement, index: number): 
   }
 
   return `视频 ${index + 1}`;
+}
+
+function resolveVideoPosterAbsoluteUrl(video: HTMLVideoElement): string | undefined {
+  const raw = video.getAttribute('poster')?.trim() || '';
+  if (!raw) return undefined;
+  const base =
+    video.ownerDocument?.baseURI ?? (typeof location !== 'undefined' ? location.href : '');
+  try {
+    return new URL(raw, base || undefined).href;
+  } catch {
+    try {
+      return base ? new URL(raw, base).href : raw;
+    } catch {
+      return raw || undefined;
+    }
+  }
+}
+
+export type ComposeVideoPreviewSource = {
+  src: string;
+  poster?: string;
+  title: string;
+};
+
+/** compose 迷你播放器：从页面 video 解析镜像 src / poster / 标题。无有效 src 时返回 null。 */
+export function resolveComposeVideoPreviewSource(
+  video: HTMLVideoElement,
+  index: number,
+): ComposeVideoPreviewSource | null {
+  const src = (video.currentSrc || video.src || '').trim();
+  if (!src) return null;
+  const poster = resolveVideoPosterAbsoluteUrl(video);
+  return {
+    src,
+    ...(poster ? { poster } : {}),
+    title: inferVideoDisplayTitle(video, index),
+  };
 }
 
 export function listViewportVideoMetas(): ViewportVideoMeta[] {
@@ -606,6 +665,44 @@ export async function sampleVideoSegmentJPEGs(
       endSec: outEnd,
       frameTimesSec: selected.map((frame) => frame.timeSec),
     };
+  } finally {
+    restorePlayback(video, snap);
+  }
+}
+
+const DEFAULT_FILMSTRIP_COUNT = 10;
+const FILMSTRIP_CAPTURE_MAX_DIM = 128;
+const FILMSTRIP_CAPTURE_QUALITY = 0.72;
+
+/**
+ * 为 compose 时间轴生成均匀分布的帧缩略图（best-effort）。
+ * 跨域 / canvas 污染时返回空数组，调用方应降级为纯色轨道。
+ */
+export async function generateVideoFilmstrip(
+  video: HTMLVideoElement,
+  count = DEFAULT_FILMSTRIP_COUNT,
+): Promise<string[]> {
+  const duration = Number.isFinite(video.duration) && video.duration > 0 ? video.duration : NaN;
+  if (!Number.isFinite(duration) || duration <= 0) return [];
+
+  const frameCount = Math.max(2, Math.min(16, Math.floor(count)));
+  const times = uniformSampleTimes(0, duration, frameCount);
+  const snap = await pauseForSampling(video);
+  const frames: string[] = [];
+
+  try {
+    for (const t of times) {
+      await seekVideoTo(video, t);
+      const dataUrl = captureVideoFrameToDataUrl(video, {
+        maxDim: FILMSTRIP_CAPTURE_MAX_DIM,
+        quality: FILMSTRIP_CAPTURE_QUALITY,
+      });
+      if (!dataUrl) return [];
+      frames.push(dataUrl);
+    }
+    return frames;
+  } catch {
+    return [];
   } finally {
     restorePlayback(video, snap);
   }

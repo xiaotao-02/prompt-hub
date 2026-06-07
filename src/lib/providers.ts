@@ -13,31 +13,30 @@ import type { ProviderId, ProviderMeta } from './types';
  * 中通过端点 `/models` 拉取后选择，因此即使各家上下架模型也不会让插件失效。
  */
 export const PROVIDERS: Record<ProviderId, ProviderMeta> = {
-
   // ============ 三大原生协议 ============
   openai: {
     id: 'openai',
     label: 'OpenAI',
     defaultBaseUrl: 'https://api.openai.com/v1',
-    defaultModel: 'gpt-4o-mini',
+    defaultModel: 'gpt-5.5',
     docsUrl: 'https://platform.openai.com/api-keys',
-    description: '官方 GPT-4o / o-series 视觉模型，识别效果稳定，需要海外网络',
+    description: '官方 GPT-5.5 / GPT-4o / o-series 视觉模型，识别效果稳定，需要海外网络',
   },
   anthropic: {
     id: 'anthropic',
     label: 'Anthropic Claude',
     defaultBaseUrl: 'https://api.anthropic.com/v1',
-    defaultModel: 'claude-3-5-sonnet-latest',
+    defaultModel: 'claude-sonnet-4-6',
     docsUrl: 'https://console.anthropic.com/settings/keys',
-    description: 'Claude 3.5 / 3.7 Sonnet，描述细腻，适合自然语言提示词',
+    description: 'Claude Sonnet 4.6 / Claude 4 多模态，描述细腻，适合自然语言提示词',
   },
   gemini: {
     id: 'gemini',
     label: 'Google Gemini',
     defaultBaseUrl: 'https://generativelanguage.googleapis.com/v1beta',
-    defaultModel: 'gemini-2.0-flash',
+    defaultModel: 'gemini-2.5-flash',
     docsUrl: 'https://aistudio.google.com/apikey',
-    description: 'Google Gemini，速度快、免费额度足',
+    description: 'Google Gemini 2.5 Flash / Pro，速度快、多模态识图',
   },
 
   // ============ 国内主流（OpenAI 兼容）============
@@ -45,25 +44,25 @@ export const PROVIDERS: Record<ProviderId, ProviderMeta> = {
     id: 'zhipu',
     label: '智谱 GLM',
     defaultBaseUrl: 'https://open.bigmodel.cn/api/paas/v4',
-    defaultModel: 'glm-4v-flash',
+    defaultModel: 'glm-4.6v',
     docsUrl: 'https://open.bigmodel.cn/usercenter/apikeys',
-    description: '智谱 GLM-4V，国产视觉模型，glm-4v-flash 免费',
+    description: '智谱 GLM-4.6V / GLM-4V 系列，国产视觉模型，glm-4v-flash 仍免费',
   },
   qwen: {
     id: 'qwen',
     label: '通义千问 Qwen-VL',
     defaultBaseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
-    defaultModel: 'qwen-vl-max-latest',
+    defaultModel: 'qwen3-vl-plus',
     docsUrl: 'https://bailian.console.aliyun.com/?apiKey=1',
-    description: '阿里云百炼 Qwen-VL，国产视觉旗舰',
+    description: '阿里云百炼 Qwen3-VL / Qwen-VL，国产视觉旗舰',
   },
   siliconflow: {
     id: 'siliconflow',
     label: '硅基流动 SiliconFlow',
     defaultBaseUrl: 'https://api.siliconflow.cn/v1',
-    defaultModel: 'Qwen/Qwen2.5-VL-32B-Instruct',
+    defaultModel: 'Qwen/Qwen3-VL-32B-Instruct',
     docsUrl: 'https://cloud.siliconflow.cn/account/ak',
-    description: '聚合多家开源 VL 模型（DeepSeek-VL2 / Qwen-VL 等），国内可直连',
+    description: '聚合 Qwen3-VL / DeepSeek-VL2 / GLM-4.6V 等开源 VL 模型，国内可直连',
   },
   deepseek: {
     id: 'deepseek',
@@ -131,7 +130,7 @@ export const PROVIDERS: Record<ProviderId, ProviderMeta> = {
     id: 'openrouter',
     label: 'OpenRouter',
     defaultBaseUrl: 'https://openrouter.ai/api/v1',
-    defaultModel: 'openai/gpt-4o-mini',
+    defaultModel: 'openai/gpt-5.5',
     docsUrl: 'https://openrouter.ai/keys',
     description: '聚合上百家模型的统一网关：GPT / Claude / Gemini / Llama / Qwen…',
   },
@@ -140,9 +139,9 @@ export const PROVIDERS: Record<ProviderId, ProviderMeta> = {
     label: 'xAI Grok',
     uiTier: 'extended',
     defaultBaseUrl: 'https://api.x.ai/v1',
-    defaultModel: 'grok-2-vision-latest',
+    defaultModel: 'grok-4.3',
     docsUrl: 'https://console.x.ai',
-    description: 'xAI 官方 Grok 系列，含 vision 模型',
+    description: 'xAI 官方 Grok 4.3 / Grok Vision 系列，多模态识图',
   },
   mistral: {
     id: 'mistral',
@@ -187,7 +186,7 @@ export const PROVIDERS: Record<ProviderId, ProviderMeta> = {
     label: '数科隆达 中转',
     uiTier: 'extended',
     defaultBaseUrl: 'https://ai.shukelongda.cn/v1',
-    defaultModel: 'gpt-4o-mini',
+    defaultModel: 'gpt-5.5',
     docsUrl: 'https://ai.shukelongda.cn',
     description: '第三方 OpenAI 兼容中转网关，可聚合多家模型；需自行到该站点申请 Key',
     streamingNote: '若中转端点不支持 SSE，将一次性返回完整结果并在进度条提示',
@@ -207,12 +206,10 @@ export const PROVIDERS: Record<ProviderId, ProviderMeta> = {
 
 export const PROVIDER_LIST: ProviderMeta[] = Object.values(PROVIDERS);
 
-/** 设置页默认展示的供应商（未标 `uiTier: 'extended'` 的条目） */
-export const PROVIDER_LIST_FEATURED: ProviderMeta[] = PROVIDER_LIST.filter(
-  (p) => p.uiTier !== 'extended',
-);
-
-/** 设置页折叠在「更多供应商」中的条目，顺序与 PROVIDERS 定义一致 */
-export const PROVIDER_LIST_EXTENDED: ProviderMeta[] = PROVIDER_LIST.filter(
-  (p) => p.uiTier === 'extended',
-);
+/** 服务商下拉展示顺序：英文供应商在前（A-Z），中文供应商按拼音在后；不含内置服务 */
+export const PROVIDER_LIST_SORTED: ProviderMeta[] = PROVIDER_LIST.sort((a, b) => {
+  const aLatin = /^[A-Za-z]/.test(a.label);
+  const bLatin = /^[A-Za-z]/.test(b.label);
+  if (aLatin !== bLatin) return aLatin ? -1 : 1;
+  return a.label.localeCompare(b.label, 'zh-Hans-CN');
+});

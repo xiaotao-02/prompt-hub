@@ -12,11 +12,17 @@
 import type {
   ExtractStage,
   OneClickRefineRandomness,
+  OutputStyle,
   PromptVersion,
   RefineStage,
   StrategyId,
   StreamDeliveryMode,
+  VideoSegmentMeta,
 } from '@/lib/types';
+import {
+  defaultVideoSegmentRange,
+  resolveViewportVideoAtIndex,
+} from '@/content/videoSegmentSample';
 import { pickRefineJobForUi } from '@/lib/refineProgressUi';
 
 /** 浮动面板并行「一键洗稿 / AI 调整」任务 */
@@ -106,8 +112,15 @@ export interface PanelState {
    * 直接复用同一字段即可。
    */
   strategy?: StrategyId;
+  /** 本次反推使用的输出格式（与 AppSettings.outputStyle 对齐） */
+  outputStyle?: OutputStyle;
   /** 一键洗稿随机强度（与 AppSettings.oneClickRewriteRandomness 对齐） */
   oneClickRefineRandomness?: OneClickRefineRandomness;
+  /**
+   * 时间段反推元数据（compose「时间段反推」写入；success 态用于分镜大纲导航）。
+   * 非视频反推发起时应显式置 undefined 以清空。
+   */
+  videoSegment?: VideoSegmentMeta;
 }
 
 export const HOST_ID = '__image_prompt_extractor_host__';
@@ -128,6 +141,8 @@ export interface PanelGeometry {
   top: number;
   width?: number;
   height?: number;
+  /** 用户通过边缘/角落横向 resize 主动设定宽度后不再自动宽窄切换 */
+  widthUserLocked?: boolean;
 }
 
 export let host: HTMLDivElement | null = null;
@@ -209,6 +224,53 @@ export function clampComposeSelectedVideoIndex(videoCount: number): number {
   const clamped = Math.min(Math.max(0, composeSelectedVideoIndex), videoCount - 1);
   composeSelectedVideoIndex = clamped;
   return clamped;
+}
+
+/** compose 视频片段时间（秒）；不写入 PanelState，重渲时保留。 */
+let composeVideoSegStart: number | null = null;
+let composeVideoSegEnd: number | null = null;
+let composeVideoSegBoundIndex: number | null = null;
+
+export function getComposeVideoSegStart(): number | null {
+  return composeVideoSegStart;
+}
+
+export function getComposeVideoSegEnd(): number | null {
+  return composeVideoSegEnd;
+}
+
+export function setComposeVideoSegStart(sec: number | null): void {
+  composeVideoSegStart = sec;
+}
+
+export function setComposeVideoSegEnd(sec: number | null): void {
+  composeVideoSegEnd = sec;
+}
+
+export function resetComposeVideoSegment(): void {
+  composeVideoSegStart = null;
+  composeVideoSegEnd = null;
+  composeVideoSegBoundIndex = null;
+}
+
+export function applyDefaultComposeVideoSegment(
+  videoIndex: number,
+  opts?: { force?: boolean },
+): void {
+  if (
+    !opts?.force &&
+    composeVideoSegBoundIndex === videoIndex &&
+    composeVideoSegStart != null &&
+    composeVideoSegEnd != null
+  ) {
+    return;
+  }
+  const video = resolveViewportVideoAtIndex(videoIndex);
+  if (!video) return;
+  const { startSec, endSec } = defaultVideoSegmentRange(video);
+  composeVideoSegStart = startSec;
+  composeVideoSegEnd = endSec;
+  composeVideoSegBoundIndex = videoIndex;
 }
 
 export const panelActions = {

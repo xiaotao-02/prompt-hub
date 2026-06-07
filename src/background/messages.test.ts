@@ -18,6 +18,8 @@ const {
   refreshRemoteRuntimeConfigNow,
   normalizeReferenceList,
   parseRegionCaptureConfirmPayload,
+  getUserStrategyPresets,
+  applyUserStrategyPresetToSettings,
 } = vi.hoisted(() => ({
   getSettings: vi.fn(),
   saveSettings: vi.fn(),
@@ -36,6 +38,8 @@ const {
   refreshRemoteRuntimeConfigNow: vi.fn(),
   normalizeReferenceList: vi.fn((urls: string[]) => urls),
   parseRegionCaptureConfirmPayload: vi.fn(),
+  getUserStrategyPresets: vi.fn(),
+  applyUserStrategyPresetToSettings: vi.fn(),
 }));
 
 vi.mock('@/lib/storage', () => ({
@@ -45,6 +49,10 @@ vi.mock('@/lib/storage', () => ({
   appendPromptVersion,
   restorePromptVersion,
   removePromptVersion,
+}));
+vi.mock('@/lib/storage/userStrategyPresets', () => ({
+  getUserStrategyPresets,
+  applyUserStrategyPresetToSettings,
 }));
 vi.mock('@/lib/referenceImages', () => ({ normalizeReferenceList }));
 vi.mock('@/lib/regionCaptureCrop', () => ({ parseRegionCaptureConfirmPayload }));
@@ -168,6 +176,47 @@ describe('registerRuntimeMessageListener', () => {
   it('SET_PROMPT_STRATEGY rejects missing strategy', () => {
     const { sendResponse } = dispatch({ type: 'SET_PROMPT_STRATEGY', payload: {} });
     expect(sendResponse).toHaveBeenCalledWith({ ok: false, error: '缺少 strategy' });
+  });
+
+  it('APPLY_USER_STRATEGY_PRESET saves applied preset settings', async () => {
+    getUserStrategyPresets.mockResolvedValue([
+      {
+        id: 'p1',
+        name: '测试预设',
+        createdAt: 1,
+        updatedAt: 1,
+        customComponents: {
+          stylePromptSet: 'v0.3.0',
+          sampling: 'v0.3.0',
+          customJoin: 'v0.3.0',
+        },
+        customPromptTemplate: '',
+      },
+    ]);
+    getSettings.mockResolvedValue({ promptStrategy: 'v036' });
+    applyUserStrategyPresetToSettings.mockImplementation((_base, preset) => ({
+      promptStrategy: 'custom',
+      presetApplied: preset.id,
+    }));
+    const { keepOpen, sendResponse } = dispatch({
+      type: 'APPLY_USER_STRATEGY_PRESET',
+      payload: { presetId: 'p1' },
+    });
+    expect(keepOpen).toBe(true);
+    await vi.waitFor(() => expect(sendResponse).toHaveBeenCalledWith({ ok: true }));
+    expect(applyUserStrategyPresetToSettings).toHaveBeenCalled();
+    expect(saveSettings).toHaveBeenCalled();
+  });
+
+  it('APPLY_USER_STRATEGY_PRESET rejects missing preset', async () => {
+    getUserStrategyPresets.mockResolvedValue([]);
+    const { sendResponse } = dispatch({
+      type: 'APPLY_USER_STRATEGY_PRESET',
+      payload: { presetId: 'missing' },
+    });
+    await vi.waitFor(() =>
+      expect(sendResponse).toHaveBeenCalledWith({ ok: false, error: '预设不存在或已删除' }),
+    );
   });
 
   it('GET_HISTORY_ITEM delegates to storage', async () => {

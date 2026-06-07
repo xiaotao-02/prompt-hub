@@ -37,7 +37,9 @@ export function extractStreamModeForUi(state: PanelState): StreamDeliveryMode | 
   return fromJob ?? state.streamMode;
 }
 import { syncEditorCharCount } from './dirtyChrome';
-import { patchStrategyDropdownSelection, strategyHeaderLabel } from './strategyDisplay';
+import { panelModelDisplayName } from './modelDisplayName';
+import { patchStrategyDropdownFromSettings, strategyHeaderLabel } from './strategyDisplay';
+import { patchOutputStyleDropdownSelection } from './outputStyleDisplay';
 
 export {
   resolveStrategyDisplayId,
@@ -192,26 +194,31 @@ export function applyLoadingPatch(state: PanelState): void {
   // 策略 badge：可能在 PENDING 时还没有，要在 settings 加载完后追加上去。
   // 直接覆盖文本即可；空值时清空文本但保留节点位置不抖动 header。
   const strategyEl = panel.querySelector<HTMLElement>('[data-role="strategy-badge"]');
-  if (strategyEl) {
-    const label = strategyHeaderLabel(state.strategy);
-    strategyEl.textContent = label ? `策略：${label}` : '';
-    strategyEl.classList.toggle('hidden', !label);
+  if (strategyEl && state.strategy !== undefined) {
+    void patchStrategyDropdownFromSettings(panel, state.strategy).then(({ headerLabel }) => {
+      strategyEl.textContent = headerLabel ? `策略：${headerLabel}` : '';
+      strategyEl.classList.toggle('hidden', !headerLabel);
+    });
+  } else if (strategyEl) {
+    strategyEl.textContent = '';
+    strategyEl.classList.toggle('hidden', true);
   }
 
   if (state.strategy !== undefined) {
-    patchStrategyDropdownSelection(panel, state.strategy);
+    void patchStrategyDropdownFromSettings(panel, state.strategy);
   }
 
-  // 模型 badge：和 strategy 同时（settings 加载完）补发，用 "provider · model"
-  // 形式让用户看清"这次到底用谁的什么模型在跑"。空值时整块隐藏。
+  if (state.outputStyle !== undefined) {
+    patchOutputStyleDropdownSelection(panel, state.outputStyle);
+  }
+
+  // 模型 badge：和 strategy 同时（settings 加载完）补发，仅展示模型名。空值时整块隐藏。
   const modelEl = panel.querySelector<HTMLElement>('[data-role="model-badge"]');
   if (modelEl) {
-    const modelLabel = state.model
-      ? `${state.provider ? state.provider + ' · ' : ''}${state.model}`
-      : '';
+    const modelLabel = panelModelDisplayName(state.provider, state.model);
     modelEl.textContent = modelLabel;
     modelEl.classList.toggle('hidden', !modelLabel);
-    if (modelLabel) modelEl.setAttribute('title', `本次使用：${modelLabel}`);
+    if (modelLabel) modelEl.setAttribute('title', `反推模型：${modelLabel}（点击切换）`);
   }
 
   const anyExtractPartial = panelExtractJobs(state).some((j) => !!(j.partial ?? '').trim());
@@ -284,6 +291,7 @@ export function manageRefineTicker(state: PanelState): void {
   const job = primaryRefineJobForUi(state);
   if (!panelHasActiveRefine(state) || !job?.startedAt) {
     stopRefineTicker();
+    stopRefineStallWatchdog();
     return;
   }
   if (refineTickHandle !== null) return;
@@ -307,6 +315,38 @@ export function stopRefineTicker(): void {
     window.clearInterval(refineTickHandle);
     setRefineTickHandle(null);
   }
+}
+
+/** 改写长时间无 REFINE_PROGRESS / sendResponse 时避免 refineJobs 永久停在 calling。 */
+const REFINE_STALL_MS = 120_000;
+let refineStallWatchHandle: number | null = null;
+
+export function stopRefineStallWatchdog(): void {
+  if (refineStallWatchHandle !== null) {
+    window.clearTimeout(refineStallWatchHandle);
+    refineStallWatchHandle = null;
+  }
+}
+
+export function manageRefineStallWatchdog(state: PanelState): void {
+  stopRefineStallWatchdog();
+  const job = primaryRefineJobForUi(state);
+  if (!panelHasActiveRefine(state) || !job?.startedAt) return;
+  const watchedJobId = job.jobId;
+  const watchedStartedAt = job.startedAt;
+  refineStallWatchHandle = window.setTimeout(() => {
+    refineStallWatchHandle = null;
+    if (!currentState || !panelHasActiveRefine(currentState)) return;
+    const curJob = primaryRefineJobForUi(currentState);
+    if (!curJob || curJob.jobId !== watchedJobId || curJob.startedAt !== watchedStartedAt) {
+      return;
+    }
+    panelActions.renderPanel({
+      ...currentState,
+      refineJobs: undefined,
+      refineError: '长时间未收到改写进度。可能是扩展后台已重启或网络异常，请关闭改写面板后重试。',
+    });
+  }, REFINE_STALL_MS);
 }
 
 /**

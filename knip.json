@@ -26,7 +26,26 @@
     },
     "services/api": {
       "entry": ["src/**/*.test.ts"],
-      "project": ["src/**/*.ts"]
+      "project": ["src/**/*.ts"],
+      "ignoreDependencies": ["pino-pretty"]
+    },
+    "website": {
+      "entry": [
+        "app/**/*.{ts,tsx}",
+        "components/**/*.{ts,tsx}",
+        "hooks/**/*.ts",
+        "lib/**/*.{ts,tsx}",
+        "__tests__/**/*.ts"
+      ],
+      "project": [
+        "app/**/*.{ts,tsx}",
+        "components/**/*.{ts,tsx}",
+        "hooks/**/*.ts",
+        "lib/**/*.{ts,tsx}",
+        "__tests__/**/*.ts",
+        "types/**/*.ts"
+      ],
+      "ignoreDependencies": ["typescript-eslint"]
     }
   }
 }

@@ -16,8 +16,14 @@ export const STREAM_FLUSH_INTERVAL_MS = 80;
 /** AI 调整（refine）次选 API fetch 超时，略短于库页 120s  watchdog。 */
 export const REFINE_FETCH_TIMEOUT_MS = 90_000;
 
+/** 反推主 API fetch 超时，略短于面板 120s stall watchdog。 */
+export const EXTRACT_FETCH_TIMEOUT_MS = 110_000;
+
 export const REFINE_FETCH_TIMEOUT_MESSAGE =
   '次选 API 请求超时（90 秒），请检查接口地址（需含 /v1）、API Key 与模型名是否正确';
+
+export const EXTRACT_FETCH_TIMEOUT_MESSAGE =
+  '反推请求超时（110 秒），请检查网络、接口地址（需含 /v1）、API Key 与模型是否支持视觉输入';
 
 /** refine 流式请求用的 AbortSignal；环境不支持 timeout 时返回 undefined。 */
 export function refineFetchAbortSignal(): AbortSignal | undefined {
@@ -26,10 +32,21 @@ export function refineFetchAbortSignal(): AbortSignal | undefined {
   return AbortSignal.timeout(REFINE_FETCH_TIMEOUT_MS);
 }
 
+/** extract 流式请求用的 AbortSignal；环境不支持 timeout 时返回 undefined。 */
+export function extractFetchAbortSignal(): AbortSignal | undefined {
+  if (typeof AbortSignal === 'undefined') return undefined;
+  if (typeof AbortSignal.timeout !== 'function') return undefined;
+  return AbortSignal.timeout(EXTRACT_FETCH_TIMEOUT_MS);
+}
+
 export function isRefineFetchTimeoutError(err: unknown): boolean {
   if (err instanceof DOMException && err.name === 'TimeoutError') return true;
   if (err instanceof Error && err.name === 'TimeoutError') return true;
   return false;
+}
+
+export function isExtractFetchTimeoutError(err: unknown): boolean {
+  return isRefineFetchTimeoutError(err);
 }
 
 /** 响应是不是 text/event-stream（含带 charset 后缀的情况）。 */
@@ -149,7 +166,7 @@ export async function describeRespFailure(resp: Response, label: string): Promis
       };
       if (j.code === 'insufficient_balance' || j.error?.includes('余额')) {
         const link = j.rechargeUrl ? ` 请充值：${j.rechargeUrl}` : '';
-        return `${j.error ?? '平台额度不足'}${link}`;
+        return `${j.error ?? '内置服务点数不足'}${link}`;
       }
     } catch {
       /* fall through */

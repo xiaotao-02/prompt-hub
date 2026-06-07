@@ -126,7 +126,12 @@ function openDbRaw(): Promise<IDBDatabase> {
 let dbPromise: Promise<IDBDatabase> | null = null;
 
 export function openHistoryDb(): Promise<IDBDatabase> {
-  if (!dbPromise) dbPromise = openDbRaw();
+  if (!dbPromise) {
+    dbPromise = openDbRaw().catch((err) => {
+      dbPromise = null;
+      throw err;
+    });
+  }
   return dbPromise;
 }
 
@@ -226,10 +231,20 @@ export async function bulkPutHistoryItems(items: HistoryItem[]): Promise<void> {
   });
 }
 
-/** 清空后写入（备份 replace / 测试）。 */
+/** 清空后写入（备份 replace / 测试）。单事务原子化，避免 clear 成功而 put 失败导致空库。 */
 export async function bulkReplaceHistory(items: HistoryItem[]): Promise<void> {
-  await clearHistoryStore();
-  await bulkPutHistoryItems(items);
+  const db = await openHistoryDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(HISTORY_STORE, 'readwrite');
+    const store = tx.objectStore(HISTORY_STORE);
+    store.clear();
+    for (const it of items) {
+      store.put(toStoredRecord(it));
+    }
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+    tx.onabort = () => reject(tx.error);
+  });
 }
 
 /**

@@ -19,6 +19,34 @@ import { buildBackup, parseBackupPayload, restoreBackup, type BackupPayload } fr
 
 export const BACKUP_FILE_NAME = 'prompt-hub-data.json';
 
+/** 旧版插件导出的备份文件名，数据目录读取时 fallback。 */
+export const LEGACY_BACKUP_FILE_NAMES = ['prompt-extracto-data.json'] as const;
+
+async function readBackupTextFromDirectory(
+  handle: FileSystemDirectoryHandle,
+): Promise<string | null> {
+  const candidates = [BACKUP_FILE_NAME, ...LEGACY_BACKUP_FILE_NAMES];
+  for (const name of candidates) {
+    try {
+      const fileHandle = await handle.getFileHandle(name, { create: false });
+      const file = await fileHandle.getFile();
+      return await file.text();
+    } catch (err) {
+      if (err instanceof Error && err.name === 'NotFoundError') continue;
+      throw err;
+    }
+  }
+  return null;
+}
+
+async function readBackupPayloadFromDirectory(
+  handle: FileSystemDirectoryHandle,
+): Promise<BackupPayload | null> {
+  const text = await readBackupTextFromDirectory(handle);
+  if (!text) return null;
+  return parseBackupPayload(JSON.parse(text));
+}
+
 /**
  * 判断当前浏览器是否支持 File System Access API。
  *
@@ -147,17 +175,12 @@ export async function pickDataDirectory(): Promise<{
 
   await saveDirectoryHandle(handle);
 
-  // 检查目录里是否已有备份文件
+  // 检查目录里是否已有备份文件（含旧版文件名 fallback）
   let existing: BackupPayload | null = null;
   try {
-    const fileHandle = await handle.getFileHandle(BACKUP_FILE_NAME, { create: false });
-    const file = await fileHandle.getFile();
-    const text = await file.text();
-    existing = parseBackupPayload(JSON.parse(text));
+    existing = await readBackupPayloadFromDirectory(handle);
   } catch (err) {
-    if (err instanceof Error && err.name !== 'NotFoundError') {
-      console.warn('[PromptHub] read existing backup failed', err);
-    }
+    console.warn('[PromptHub] read existing backup failed', err);
   }
 
   return { handle, existingBackup: existing };
@@ -197,9 +220,7 @@ async function isShrinkOverwrite(
 
   let existingText: string | null = null;
   try {
-    const fh = await handle.getFileHandle(BACKUP_FILE_NAME, { create: false });
-    const file = await fh.getFile();
-    existingText = await file.text();
+    existingText = await readBackupTextFromDirectory(handle);
   } catch {
     return false;
   }
@@ -303,9 +324,10 @@ export async function loadFromDirectory(mode: 'replace' | 'merge' = 'replace'): 
     return { ok: false, reason: 'permission-denied' };
   }
   try {
-    const fileHandle = await handle.getFileHandle(BACKUP_FILE_NAME, { create: false });
-    const file = await fileHandle.getFile();
-    const text = await file.text();
+    const text = await readBackupTextFromDirectory(handle);
+    if (!text) {
+      return { ok: false, reason: 'no-backup-file' };
+    }
     const result = await restoreBackup(JSON.parse(text), mode);
     return { ok: true, result };
   } catch (err) {

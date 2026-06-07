@@ -1,0 +1,69 @@
+/**
+ * 开发预览 Chrome popup 外框尺寸。
+ * 须与 src/popup/popupShell.ts 中 POPUP_WIDTH_PX / POPUP_CHROME_MAX_HEIGHT_PX 保持一致。
+ */
+:root {
+  --pe-popup-preview-width: 560px;
+  --pe-popup-preview-max-height: 600px;
+}
+
+/* 独立打开 popup-preview.html 时居中，避免铺满 Tab */
+html.popup-preview-standalone {
+  background: #ececee;
+  min-height: 100%;
+}
+
+@media (prefers-color-scheme: dark) {
+  html.popup-preview-standalone {
+    background: #27272a;
+  }
+}
+
+body.popup-preview-standalone {
+  margin: 0 auto;
+  max-width: var(--pe-popup-preview-width);
+}
+
+/* 聚合页 #popup 标签：模拟工具栏点击后的弹窗区域 */
+.popup-preview-host {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 1.5rem;
+  overflow: auto;
+  background: #ececee;
+}
+
+@media (prefers-color-scheme: dark) {
+  .popup-preview-host {
+    background: #27272a;
+  }
+}
+
+.tabpanel[data-view='popup'] {
+  min-height: 0;
+}
+
+.tabpanel[data-view='popup'] iframe.popup-preview-iframe,
+iframe.popup-preview-iframe {
+  flex: 0 0 auto !important;
+  width: var(--pe-popup-preview-width) !important;
+  max-width: calc(100% - 2rem);
+  min-height: 120px;
+  height: 360px;
+  border-radius: 14px;
+  box-shadow:
+    0 4px 6px -1px rgb(0 0 0 / 0.08),
+    0 12px 28px -4px rgb(0 0 0 / 0.12);
+}
+
+@media (prefers-color-scheme: dark) {
+  .tabpanel[data-view='popup'] iframe.popup-preview-iframe,
+  iframe.popup-preview-iframe {
+    box-shadow:
+      0 4px 6px -1px rgb(0 0 0 / 0.35),
+      0 12px 28px -4px rgb(0 0 0 / 0.45);
+  }
+}

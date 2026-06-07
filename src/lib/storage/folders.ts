@@ -13,6 +13,7 @@
 import type { HistoryItem, LibraryFolder } from '../types';
 import { notifyBackupSubscribers } from './backupNotify';
 import { ensureLibraryReady, finalizeHistoryMutation } from './history';
+import type { StorageWriteResult } from './settings';
 import {
   bulkPutHistoryItems,
   forEachHistoryRecord,
@@ -68,10 +69,25 @@ export async function getFolders(): Promise<LibraryFolder[]> {
   return foldersCache.slice();
 }
 
-export async function writeFolders(list: LibraryFolder[]): Promise<void> {
-  foldersCache = list;
-  await chrome.storage.local.set({ [FOLDERS_KEY]: list });
-  notifyBackupSubscribers();
+export async function writeFolders(list: LibraryFolder[]): Promise<StorageWriteResult> {
+  try {
+    foldersCache = list;
+    await chrome.storage.local.set({ [FOLDERS_KEY]: list });
+    notifyBackupSubscribers();
+    return { ok: true };
+  } catch (err) {
+    foldersCache = null;
+    const error = err instanceof Error ? err.message : String(err);
+    console.warn('[PromptHub] writeFolders failed', err);
+    return { ok: false, error };
+  }
+}
+
+async function persistFolders(list: LibraryFolder[]): Promise<void> {
+  const result = await writeFolders(list);
+  if (!result.ok) {
+    throw new Error(result.error);
+  }
 }
 
 function newFolderId(): string {
@@ -107,7 +123,7 @@ export async function createFolder(input: CreateFolderInput): Promise<LibraryFol
     sortKey: nextSortKey(list, input.parentId ?? null),
     color: input.color,
   };
-  await writeFolders([...list, folder]);
+  await persistFolders([...list, folder]);
   return folder;
 }
 
@@ -121,7 +137,7 @@ export async function renameFolder(id: string, name: string): Promise<LibraryFol
     updatedAt: Date.now(),
   };
   list[idx] = next;
-  await writeFolders(list);
+  await persistFolders(list);
   return next;
 }
 
@@ -140,7 +156,7 @@ export async function patchFolder(
   }
   const next: LibraryFolder = { ...list[idx], ...patch, updatedAt: Date.now() };
   list[idx] = next;
-  await writeFolders(list);
+  await persistFolders(list);
   return next;
 }
 
@@ -171,7 +187,7 @@ export async function removeFolder(id: string, options: { cascade?: boolean } = 
       remaining.push(f);
     }
   }
-  await writeFolders(remaining);
+  await persistFolders(remaining);
 
   // 释放归属：该文件夹（cascade 时为整棵子树）下的 HistoryItem.folderId 全部清空
   await detachHistoryFromFolders(toRemove);
@@ -244,7 +260,7 @@ export async function moveHistoryItemsToFolder(
 
 /** 替换全部 folders（用于备份恢复 replace 模式）。 */
 export async function replaceFolders(list: LibraryFolder[]): Promise<void> {
-  await writeFolders(list.map(normalizeFolder));
+  await persistFolders(list.map(normalizeFolder));
 }
 
 /** 合并 folders（用于备份恢复 merge 模式，按 id 去重，已存在保留较新者）。 */
@@ -263,5 +279,5 @@ export async function mergeFolders(incoming: LibraryFolder[]): Promise<void> {
       byId.set(f.id, newer);
     }
   }
-  await writeFolders(Array.from(byId.values()));
+  await persistFolders(Array.from(byId.values()));
 }

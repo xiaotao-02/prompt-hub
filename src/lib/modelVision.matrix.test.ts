@@ -26,6 +26,12 @@ const CASES: MatrixCase[] = [
   // Anthropic
   {
     provider: 'anthropic',
+    model: 'claude-sonnet-4-6',
+    expectBlock: false,
+    expectVision: 'vision',
+  },
+  {
+    provider: 'anthropic',
     model: 'claude-opus-4-20250514',
     expectBlock: false,
     expectVision: 'vision',
@@ -56,6 +62,7 @@ const CASES: MatrixCase[] = [
   // DeepSeek
   { provider: 'deepseek', model: 'deepseek-chat', expectBlock: true, expectVision: 'no_vision' },
   // xAI / Mistral / Moonshot
+  { provider: 'xai', model: 'grok-4.3', expectBlock: false, expectVision: 'vision' },
   { provider: 'xai', model: 'grok-3-beta', expectBlock: false, expectVision: 'vision' },
   {
     provider: 'mistral',
@@ -71,6 +78,7 @@ const CASES: MatrixCase[] = [
     expectVision: 'vision',
   },
   // 国产
+  { provider: 'zhipu', model: 'glm-4.6v', expectBlock: false, expectVision: 'vision' },
   { provider: 'zhipu', model: 'glm-4v-flash', expectBlock: false, expectVision: 'vision' },
   { provider: 'zhipu', model: 'glm-4-flash', expectBlock: false, expectVision: 'no_vision' },
   { provider: 'qwen', model: 'qwen3-vl-plus', expectBlock: false, expectVision: 'vision' },

@@ -38,6 +38,11 @@ export type UiMotionTokens = {
   radiusLg: string;
   collapseDuration: string;
   collapseEase: string;
+  durationFast: string;
+  durationBase: string;
+  durationSlow: string;
+  easeStandard: string;
+  easeSpring: string;
 };
 
 const MOTION: UiMotionTokens = {
@@ -45,6 +50,11 @@ const MOTION: UiMotionTokens = {
   radiusLg: '12px',
   collapseDuration: '220ms',
   collapseEase: 'cubic-bezier(0.2, 0.9, 0.3, 1.2)',
+  durationFast: '120ms',
+  durationBase: '180ms',
+  durationSlow: '300ms',
+  easeStandard: 'cubic-bezier(0.2, 0, 0, 1)',
+  easeSpring: 'cubic-bezier(0.2, 0.9, 0.3, 1.2)',
 };
 
 /** 亮色主题语义色（扩展页与面板共用数值） */
@@ -145,6 +155,11 @@ function panelVars(mode: UiThemeMode): Record<string, string> {
     '--pe-shadow': base.shadowPanel,
     '--pe-collapse-duration': MOTION.collapseDuration,
     '--pe-collapse-ease': MOTION.collapseEase,
+    '--pe-duration-fast': MOTION.durationFast,
+    '--pe-duration-base': MOTION.durationBase,
+    '--pe-duration-slow': MOTION.durationSlow,
+    '--pe-ease-standard': MOTION.easeStandard,
+    '--pe-ease-spring': MOTION.easeSpring,
   };
 }
 

@@ -59,9 +59,9 @@ export function syntheticPanelStateFromScene(scene: string): PanelState | null {
     };
   }
 
-  if (s === 'compose') {
+  if (s === 'compose' || s === 'compose-video') {
     return {
-      sessionRequestId: 'dev-preview-compose',
+      sessionRequestId: s === 'compose-video' ? 'dev-preview-compose-video' : 'dev-preview-compose',
       imageUrl: img,
       imageUrls: [img],
       status: 'compose',

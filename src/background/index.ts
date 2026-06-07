@@ -1,4 +1,6 @@
+import { installSurfaceErrorLogger } from '@/lib/surfaceErrorLogger';
 import { refreshRemoteRuntimeConfigNow } from '@/lib/remoteRuntimeConfig';
+import { ensureLibraryReady } from '@/lib/storage/history';
 import { getCurrentVersion } from '@/lib/updater';
 import { installDataDirectoryAutoSync } from './dataDirectorySync';
 import {
@@ -13,12 +15,14 @@ import { relayRegionCaptureToFocusedWebTab } from './regionCapture';
 import { installRefineProgressPortHub } from './refineProgressPortHub';
 
 registerKeepaliveConnectListener();
+installSurfaceErrorLogger('background');
 installRefineProgressPortHub();
 registerContextMenuClickListener();
 registerRuntimeMessageListener();
 
 chrome.runtime.onInstalled.addListener((details) => {
   ensureContextMenus();
+  void ensureLibraryReady().catch(() => undefined);
   void refreshRemoteRuntimeConfigNow().catch(() => undefined);
   if (details.reason === 'install') {
     try {
@@ -31,6 +35,7 @@ chrome.runtime.onInstalled.addListener((details) => {
 
 chrome.runtime.onStartup.addListener(() => {
   ensureContextMenus();
+  void ensureLibraryReady().catch(() => undefined);
   void refreshRemoteRuntimeConfigNow().catch(() => undefined);
 });
 

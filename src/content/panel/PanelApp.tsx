@@ -19,7 +19,9 @@ export function PanelApp({ state, prevStatus = null }: PanelAppProps) {
   return (
     <>
       <PanelAnnounce state={state} prevStatus={prevStatus} />
-      {content}
+      <div key={state.status} className="panel-content-enter">
+        {content}
+      </div>
     </>
   );
 }

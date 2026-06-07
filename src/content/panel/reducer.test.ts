@@ -133,6 +133,35 @@ describe('panelReducer ui transitions', () => {
     expect(transition.state.prompt).toBe('p');
   });
 
+  it('updates model and provider without touching unrelated fields', () => {
+    const transition = panelReducer(
+      {
+        ...baseState(),
+        status: 'success',
+        prompt: 'p',
+        provider: 'deepseek',
+        model: 'deepseek-chat',
+      },
+      { type: 'ui.model', model: 'deepseek-reasoner', provider: 'deepseek' },
+    );
+    expect(transition.changed).toBe(true);
+    if (!transition.changed) return;
+    expect(transition.state.model).toBe('deepseek-reasoner');
+    expect(transition.state.provider).toBe('deepseek');
+    expect(transition.state.prompt).toBe('p');
+  });
+
+  it('updates outputStyle without touching unrelated fields', () => {
+    const transition = panelReducer(
+      { ...baseState(), status: 'success', prompt: 'p', outputStyle: 'natural-zh' },
+      { type: 'ui.outputStyle', outputStyle: 'json' },
+    );
+    expect(transition.changed).toBe(true);
+    if (!transition.changed) return;
+    expect(transition.state.outputStyle).toBe('json');
+    expect(transition.state.prompt).toBe('p');
+  });
+
   it('tracks draft edits and clears stale version selection', () => {
     const transition = panelReducer(
       {

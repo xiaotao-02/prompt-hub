@@ -75,6 +75,8 @@ export type RuntimeMessage =
         strategy?: StrategyId;
         /** 与设置页共用的一键洗稿随机强度；缺省时由后续 EXTRACT_PROGRESS 补发 */
         oneClickRewriteRandomness?: OneClickRefineRandomness;
+        /** 本次反推使用的输出格式；缺省时由后续 EXTRACT_PROGRESS 补发 */
+        outputStyle?: OutputStyle;
       };
     }
   | {
@@ -114,6 +116,8 @@ export type RuntimeMessage =
         model?: string;
         /** 一键洗稿随机强度（settings 就绪后与 strategy 一并下发） */
         oneClickRewriteRandomness?: OneClickRefineRandomness;
+        /** 本次反推使用的输出格式（settings 就绪后与 strategy 一并下发） */
+        outputStyle?: OutputStyle;
       };
     }
   | {
@@ -231,9 +235,38 @@ export type RuntimeMessage =
       payload: { strategy: StrategyId };
     }
   | {
+      /** 浮动面板 / 设置页应用已保存的用户策略预设 */
+      type: 'APPLY_USER_STRATEGY_PRESET';
+      payload: { presetId: string };
+    }
+  | {
+      /**
+       * 浮动面板切换输出格式后请求后台写回 `app_settings_v1.outputStyle`，
+       * 与选项页、其它上下文共用同一份默认格式。
+       */
+      type: 'SET_OUTPUT_STYLE';
+      payload: { style: OutputStyle };
+    }
+  | {
       /** 浮动面板等处切换「一键洗稿」随机强度后写回全局设置 */
       type: 'SET_ONE_CLICK_REWRITE_RANDOMNESS';
       payload: { level: OneClickRefineRandomness };
+    }
+  | {
+      /**
+       * 浮动面板 header 模型下拉：读取当前激活供应商的反推模型与已发现列表。
+       * Content 不直读 storage；由 background 从 `providers[activeProvider]` 组装。
+       */
+      type: 'GET_ACTIVE_MODEL_OPTIONS';
+      payload?: Record<string, never>;
+    }
+  | {
+      /**
+       * 浮动面板切换反推模型后写回 `providers[activeProvider].model`；
+       * 不改 `refineProvider` / `refineModel`。
+       */
+      type: 'SET_EXTRACT_MODEL';
+      payload: { model: string };
     }
   | {
       /**
@@ -393,6 +426,36 @@ export interface PeExtQuotaRefreshMessage {
 }
 
 export interface PeExtQuotaRefreshResponse {
+  ok: boolean;
+  error?: string;
+}
+
+/** 官网 → 扩展：查询扩展是否已登录内置服务 */
+export const PE_EXT_GET_STATUS_TYPE = 'PE_EXT_GET_STATUS' as const;
+
+export interface PeExtGetStatusMessage {
+  type: typeof PE_EXT_GET_STATUS_TYPE;
+}
+
+export interface PeExtGetStatusResponse {
+  ok: boolean;
+  loggedIn?: boolean;
+  error?: string;
+}
+
+/** 官网 → 扩展：请求打开选项页（支持 hash 深链） */
+export const PE_EXT_OPEN_OPTIONS_TYPE = 'PE_EXT_OPEN_OPTIONS' as const;
+
+export interface PeExtOpenOptionsMessage {
+  type: typeof PE_EXT_OPEN_OPTIONS_TYPE;
+  payload?: {
+    tab?: 'settings' | 'library';
+    focusId?: string;
+    dock?: 'refine' | 'versions';
+  };
+}
+
+export interface PeExtOpenOptionsResponse {
   ok: boolean;
   error?: string;
 }

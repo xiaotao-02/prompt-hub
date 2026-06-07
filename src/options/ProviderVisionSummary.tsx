@@ -73,6 +73,8 @@ export default function ProviderVisionSummary({
           ? '示例（拉取端点后更新）'
           : null;
 
+  const stripUpstreamPrefix = (id: string) => id;
+
   return (
     <div
       className={cx(
@@ -84,21 +86,21 @@ export default function ProviderVisionSummary({
       {meta && <p className="text-[9px] leading-snug text-zinc-400 dark:text-zinc-500">{meta}</p>}
       <ModelChipList
         label="支持识图"
-        items={display.visionShown}
+        items={display.visionShown.map(stripUpstreamPrefix)}
         rest={display.visionRest}
         tone="vision"
       />
       {display.unknownShown.length > 0 || display.unknownRest > 0 ? (
         <ModelChipList
           label="未确认"
-          items={display.unknownShown}
+          items={display.unknownShown.map(stripUpstreamPrefix)}
           rest={display.unknownRest}
           tone="unknown"
         />
       ) : null}
       <ModelChipList
         label="不支持识图"
-        items={display.noVisionShown}
+        items={display.noVisionShown.map(stripUpstreamPrefix)}
         rest={display.noVisionRest}
         tone="noVision"
       />

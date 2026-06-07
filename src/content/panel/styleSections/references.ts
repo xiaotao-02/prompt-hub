@@ -81,4 +81,29 @@ export const referencesCss = `
 .ref-remove:hover {
   background: rgba(220,38,38,0.92);
 }
+.ref-strip-compact {
+  flex-wrap: nowrap;
+  justify-content: flex-start;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding-bottom: 2px;
+  scrollbar-width: thin;
+}
+.ref-strip-compact.ref-strip-empty {
+  min-height: 56px;
+  border-radius: var(--pe-radius);
+  border: 1px dashed var(--pe-border-strong);
+  background: var(--pe-bg-muted);
+}
+.ref-item-compact {
+  width: 56px;
+  height: 56px;
+  flex: none;
+}
+.ref-item-compact .ref-remove {
+  width: 18px;
+  height: 18px;
+  line-height: 16px;
+  font-size: 13px;
+}
 `;

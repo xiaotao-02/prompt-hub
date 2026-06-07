@@ -1,14 +1,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { PROVIDER_LIST, PROVIDERS } from '@/lib/providers';
+import { PROVIDER_LIST_SORTED, PROVIDERS } from '@/lib/providers';
 import { migrateProviderSlot } from '@/lib/storage';
 import { inferProviderFromModelList } from '@/lib/providerIdFromModel';
 import type { AppSettings, ProviderConfig, ProviderId } from '@/lib/types';
 import { classifyModel } from '@/lib/modelVision';
-import { applyAutoModelPickToDraft } from '@/lib/modelPick';
+import { applyAutoModelPickToDraft, shouldHighlightFetchModelsButton } from '@/lib/modelPick';
 import { listModels } from '@/lib/api';
 import type { ModelPickerHandle } from '../../ModelPicker';
 import { resolveEffectiveRefineModel, resolveEffectiveRefineProvider } from '@/lib/providerRoles';
 import { readInitialProviderRole, type ProviderRole, type SettingsPanelId } from '../types';
+import type { CommitSettingsOptions } from './useSettingsPersistence';
 
 function providerAuthKey(_pid: ProviderId, cfg: ProviderConfig): string {
   return (cfg.apiKey ?? '').trim();
@@ -25,33 +26,28 @@ function hasProviderAuth(_pid: ProviderId, cfg: ProviderConfig): boolean {
 
 interface Options {
   settings: AppSettings | null;
+  commitSettings: (next: AppSettings, options?: CommitSettingsOptions) => void;
   setSettings: React.Dispatch<React.SetStateAction<AppSettings | null>>;
-  lastSavedSig: string | null;
-  dirty: boolean;
   persistAndMark: (next: AppSettings) => Promise<void>;
   settingsRef: React.MutableRefObject<AppSettings | null>;
   panelId: SettingsPanelId;
-  onSaved?: () => void;
 }
 
 export function useProviderConnection({
   settings,
+  commitSettings,
   setSettings,
-  lastSavedSig,
-  dirty,
   persistAndMark,
   settingsRef,
   panelId,
-  onSaved,
 }: Options) {
   const [fetchingModels, setFetchingModels] = useState(false);
   const [fetchingProviderIds, setFetchingProviderIds] = useState<Set<ProviderId>>(() => new Set());
   const [fetchModelsError, setFetchModelsError] = useState<string | null>(null);
-  const [providerInferenceHint, setProviderInferenceHint] = useState<string | null>(null);  const [providerRole, setProviderRole] = useState<ProviderRole>(readInitialProviderRole);
+  const [providerInferenceHint, setProviderInferenceHint] = useState<string | null>(null);
+  const [providerRole, setProviderRole] = useState<ProviderRole>(readInitialProviderRole);
 
   const autoFetchedRef = useRef<Map<ProviderId, string>>(new Map());
-  const autoPickedFromCacheRef = useRef<Map<ProviderId, string>>(new Map());
-  const keyAutosaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const modelFieldRef = useRef<HTMLDivElement>(null);
   const modelPickerRef = useRef<ModelPickerHandle>(null);
 
@@ -111,6 +107,7 @@ export function useProviderConnection({
               result.ids,
               visionMap,
               purpose,
+              { entries: result.entries, force: true },
             );
             draft = auto.draft;
             if (auto.hint) {
@@ -153,10 +150,6 @@ export function useProviderConnection({
   );
   useEffect(() => {
     setFetchModelsError(null);
-    if (keyAutosaveTimerRef.current) {
-      clearTimeout(keyAutosaveTimerRef.current);
-      keyAutosaveTimerRef.current = null;
-    }
   }, [settings?.activeProvider, settings?.refineProvider, providerRole]);
 
   const editingProviderId: ProviderId | undefined = settings
@@ -170,49 +163,6 @@ export function useProviderConnection({
     editingProviderId != null ? (settings?.providers[editingProviderId]?.baseUrl ?? '') : '';
 
   useEffect(() => {
-    if (!settings || lastSavedSig === null || !editingProviderId) return;
-    const pid = editingProviderId;
-    const key = editingApiKey.trim();
-    if (key.length < 6) return;
-
-    let savedKey = '';
-    try {
-      const saved = JSON.parse(lastSavedSig) as AppSettings;
-      savedKey = saved.providers[pid]?.apiKey?.trim() ?? '';
-    } catch {
-      /* ignore */
-    }
-    if (savedKey === key) return;
-
-    if (keyAutosaveTimerRef.current) clearTimeout(keyAutosaveTimerRef.current);
-    keyAutosaveTimerRef.current = setTimeout(() => {
-      const cur = settingsRef.current;
-      if (!cur) return;
-      const curEditing =
-        providerRole === 'extract' ? cur.activeProvider : resolveEffectiveRefineProvider(cur);
-      if (curEditing !== pid) return;
-      const curKey = cur.providers[pid]?.apiKey?.trim() ?? '';
-      if (curKey.length < 6 || curKey !== key) return;
-      void persistAndMark(cur);
-    }, 800);
-
-    return () => {
-      if (keyAutosaveTimerRef.current) {
-        clearTimeout(keyAutosaveTimerRef.current);
-        keyAutosaveTimerRef.current = null;
-      }
-    };
-  }, [
-    editingApiKey,
-    editingProviderId,
-    lastSavedSig,
-    persistAndMark,
-    providerRole,
-    settings,
-    settingsRef,
-  ]);
-
-  useEffect(() => {
     if (!settings || !editingProviderId) return;
     const pid = editingProviderId;
     const cfg = settings.providers[pid];
@@ -221,22 +171,6 @@ export function useProviderConnection({
     const sig = providerAuthSig(pid, cfg);
     if (!autoFetchedRef.current.has(pid) && (cfg.discoveredModels?.length ?? 0) > 0) {
       autoFetchedRef.current.set(pid, sig);
-      const discovered = cfg.discoveredModels ?? [];
-      const currentModel =
-        providerRole === 'refine' ? resolveEffectiveRefineModel(settings) : cfg.model;
-      const purpose = providerRole === 'refine' ? 'text' : 'vision';
-      const cacheKey = `${sig}|${currentModel}`;
-      if (discovered.length > 0 && autoPickedFromCacheRef.current.get(pid) !== cacheKey) {
-        const visionMap = cfg.discoveredVisionById ?? {};
-        const auto = applyAutoModelPickToDraft(settings, pid, discovered, visionMap, purpose);
-        if (auto.hint) {
-          autoPickedFromCacheRef.current.set(pid, cacheKey);
-          void persistAndMark(auto.draft).then(() => {
-            setSettings(auto.draft);
-            setProviderInferenceHint(auto.hint);
-          });
-        }
-      }
       return;
     }
     if (autoFetchedRef.current.get(pid) === sig) return;
@@ -244,19 +178,17 @@ export function useProviderConnection({
 
     const timer = setTimeout(() => {
       autoFetchedRef.current.set(pid, sig);
-      void runFetchModels(pid, cfg, sig);
+      void runFetchModels(pid, cfg, sig, { silent: true });
     }, 1000);
     return () => clearTimeout(timer);
-    // 刻意省略 setSettings：1s 防抖自动拉模型，不应因 setSettings 引用变化重置定时器
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- debounced auto-fetch signature
   }, [
     editingProviderId,
     editingApiKey,
-    editingBaseUrl,    runFetchModels,
+    editingBaseUrl,
+    runFetchModels,
     settings,
     fetchingModels,
     providerRole,
-    persistAndMark,
   ]);
 
   useEffect(() => {
@@ -335,7 +267,7 @@ export function useProviderConnection({
     const updateEditingCfg = (patch: Partial<ProviderConfig>) => {
       const { model: _model, ...rest } = patch;
       const slotPatch = providerRole === 'refine' ? rest : patch;
-      setSettings({
+      commitSettings({
         ...settings,
         providers: {
           ...settings.providers,
@@ -344,9 +276,12 @@ export function useProviderConnection({
       });
     };
 
-    const updateRefineModel = (model: string) => {
-      setSettings({ ...settings, refineModel: model });
-    };
+    const shouldHighlightFetchModels = shouldHighlightFetchModelsButton(
+      editingProviderId,
+      editingModelValue,
+      discovered,
+      { fetching: fetchingModels },
+    );
 
     const onFetchModels = async () => {
       const pid = editingProviderId;
@@ -356,39 +291,53 @@ export function useProviderConnection({
     };
 
     const applyConfig = async (next: AppSettings) => {
-      setSettings(next);
       await persistAndMark(next);
-      onSaved?.();
     };
 
     const selectProviderForRole = (nextProvider: ProviderId) => {
       if (providerRole === 'extract') {
-        setSettings({ ...settings, activeProvider: nextProvider });
+        commitSettings({ ...settings, activeProvider: nextProvider }, { immediate: true });
         return;
       }
       if (nextProvider === settings.activeProvider) {
-        setSettings({ ...settings, refineProvider: undefined, refineModel: undefined });
+        commitSettings(
+          { ...settings, refineProvider: undefined, refineModel: undefined },
+          { immediate: true },
+        );
         return;
       }
-      setSettings({
-        ...settings,
-        refineProvider: nextProvider,
-        refineModel: undefined,
-      });
+      commitSettings(
+        {
+          ...settings,
+          refineProvider: nextProvider,
+          refineModel: undefined,
+        },
+        { immediate: true },
+      );
     };
 
     const onModelChange = (m: string) => {
       if (providerRole === 'refine') {
-        updateRefineModel(m);
+        commitSettings({ ...settings, refineModel: m }, { immediate: true });
       } else {
-        updateEditingCfg({ model: m });
+        commitSettings(
+          {
+            ...settings,
+            providers: {
+              ...settings.providers,
+              [editingProviderId]: { ...editingCfg, model: m },
+            },
+          },
+          { immediate: true },
+        );
       }
     };
 
     return {
       settings,
       providerRole,
-      setProviderRole,      fetchingModels,
+      setProviderRole,
+      fetchingModels,
       fetchingProviderIds,
       fetchModelsError,
       providerInferenceHint,
@@ -399,15 +348,15 @@ export function useProviderConnection({
       discovered,
       discoveredVision,
       editingModelValue,
-      manualModelVision,      hasApiKey,
+      manualModelVision,
+      hasApiKey,
       selectedProviderId,
-      providerCount: PROVIDER_LIST.length,
-      dirty,
-      persistAndMark,
+      providerCount: PROVIDER_LIST_SORTED.length,
       updateEditingCfg,
       selectProviderForRole,
       onModelChange,
       onFetchModels,
+      shouldHighlightFetchModels,
       applyConfig,
       focusModelField,
       modelFieldRef,
@@ -416,15 +365,14 @@ export function useProviderConnection({
   }, [
     settings,
     editingProviderId,
-    providerRole,    fetchingModels,
+    providerRole,
+    fetchingModels,
     fetchingProviderIds,
     fetchModelsError,
     providerInferenceHint,
-    dirty,
-    persistAndMark,
-    setSettings,
+    commitSettings,
     runFetchModels,
-    onSaved,
+    persistAndMark,
     focusModelField,
   ]);
 

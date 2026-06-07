@@ -26,10 +26,10 @@ jobs:
           base="${{ github.event.pull_request.base.sha }}"
           head="${{ github.event.pull_request.head.sha }}"
           blocked=$(git diff --name-only "$base" "$head" \
-            | grep -E '(^|/)\.env$|upstreams\.json$|\.pem$|\.key$' \
+            | grep -E '(^|/)\.env$|\.envpack$|upstreams\.json$|\.pem$|\.key$|(^|/)private-backup/|output/zeabur-' \
             | grep -v '\.env\.example$' || true)
           if [ -n "$blocked" ]; then
-            echo "::error::PR contains sensitive files (.env, upstreams.json, .pem, .key). Use .env.example instead."
+            echo "::error::PR contains sensitive files (.env, .envpack, upstreams.json, .pem, .key, private-backup, output/zeabur-*). Use .env.example instead."
             echo "$blocked"
             exit 1
           fi

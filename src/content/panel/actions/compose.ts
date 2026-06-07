@@ -1,6 +1,10 @@
 import { safeSendMessage, isExtensionContextValid } from '@/content/extensionBridge';
 import type { ExtractFocus, VideoSegmentMeta } from '@/lib/types';
-import { resolveViewportVideoAtIndex, sampleVideoSegmentJPEGs } from '@/content/videoSegmentSample';
+import {
+  resolveViewportVideoAtIndex,
+  sampleVideoSegmentJPEGs,
+  listViewportVideos,
+} from '@/content/videoSegmentSample';
 import { normalizeReferenceList } from '@/lib/referenceImages';
 import {
   currentState,
@@ -8,8 +12,8 @@ import {
   panelReferenceUrls,
   getComposeCollectMode,
   setComposeCollectMode,
-  panelExtractJobs,
-  MAX_PARALLEL_PANEL_EXTRACTS,
+  clampComposeSelectedVideoIndex,
+  applyDefaultComposeVideoSegment,
   type PanelState,
   type ComposeCollectMode,
 } from '../state';
@@ -43,6 +47,7 @@ export function sendComposeExtractPrompt(
     refineOpen: false,
     refineJobs: undefined,
     refineError: undefined,
+    videoSegment,
   });
   safeSendMessage({
     type: 'EXTRACT_PROMPT',
@@ -51,7 +56,7 @@ export function sendComposeExtractPrompt(
       imageUrls: urls,
       pageUrl: location.href,
       pageTitle: document.title,
-      sessionRequestId: newReq,
+      requestId: newReq,
       ...(state.strategy !== undefined ? { strategyOverride: state.strategy } : {}),
       ...(extractFocus ? { extractFocus } : {}),
       ...(videoSegment ? { videoSegment } : {}),
@@ -92,7 +97,7 @@ function readComposeSegmentFields(root: HTMLElement): {
 
 function setComposeVideoSegmentBusy(shell: HTMLElement | null | undefined, busy: boolean): void {
   if (!shell) return;
-  for (const a of ['sample-video-segment-to-refs', 'extract-video-segment'] as const) {
+  for (const a of ['sample-video-segment-to-refs'] as const) {
     shell
       .querySelector<HTMLButtonElement>(`button[data-action="${a}"]`)
       ?.toggleAttribute('disabled', busy);
@@ -100,28 +105,34 @@ function setComposeVideoSegmentBusy(shell: HTMLElement | null | undefined, busy:
 }
 
 export function syncComposeCollectModeUi(root: HTMLElement, mode: ComposeCollectMode): void {
+  const hasVideos = listViewportVideos().length > 0;
+  const effectiveMode = hasVideos ? mode : 'image';
   for (const tab of root.querySelectorAll<HTMLButtonElement>('.compose-mode-tab')) {
-    const active = tab.dataset.mode === mode;
+    const active = tab.dataset.mode === effectiveMode;
     tab.setAttribute('aria-selected', String(active));
   }
   const imagePane = root.querySelector<HTMLElement>('.compose-pane-image');
   const videoPane = root.querySelector<HTMLElement>('.compose-pane-video');
-  if (imagePane) imagePane.hidden = mode !== 'image';
-  if (videoPane) videoPane.hidden = mode !== 'video';
+  if (imagePane) imagePane.hidden = effectiveMode !== 'image';
+  if (videoPane && hasVideos) videoPane.hidden = effectiveMode !== 'video';
 }
 
 export const handleClose: DataActionHandler = () => {
   closePanel();
 };
 
-export const handleComposeSetMode: DataActionHandler = ({ root, el }) => {
+export const handleComposeSetMode: DataActionHandler = ({ el }) => {
   const state = currentState;
   if (!state || state.status !== 'compose') return;
   const mode = el.dataset.mode;
   if (mode !== 'image' && mode !== 'video') return;
   if (mode === getComposeCollectMode()) return;
+  if (mode === 'video' && listViewportVideos().length === 0) return;
   setComposeCollectMode(mode);
-  syncComposeCollectModeUi(root, mode);
+  if (mode === 'video') {
+    applyDefaultComposeVideoSegment(clampComposeSelectedVideoIndex(listViewportVideos().length));
+  }
+  renderPanelFromState(state);
 };
 
 export const handleRunExtract: DataActionHandler = ({ el }) => {
@@ -140,10 +151,9 @@ export const handleRunExtract: DataActionHandler = ({ el }) => {
   sendComposeExtractPrompt(state, urls, extractFocus);
 };
 
-export const handleVideoSegment: DataActionHandler = ({ root, el }) => {
+export const handleVideoSegment: DataActionHandler = ({ root }) => {
   const state = currentState;
   if (!state || state.status !== 'compose') return;
-  const action = el.dataset.action;
 
   const fields = readComposeSegmentFields(root);
   if (!fields) return;
@@ -159,48 +169,22 @@ export const handleVideoSegment: DataActionHandler = ({ root, el }) => {
   void (async () => {
     setComposeVideoSegmentBusy(panel, true);
     try {
-      const { frames, startSec, endSec, frameTimesSec } = await sampleVideoSegmentJPEGs(
-        video,
-        fields.startSec,
-        fields.endSec,
-      );
+      const { frames } = await sampleVideoSegmentJPEGs(video, fields.startSec, fields.endSec);
 
-      const segmentMeta: VideoSegmentMeta = { startSec, endSec, frameTimesSec };
-
-      if (action === 'sample-video-segment-to-refs') {
-        const prev = panelReferenceUrls(state);
-        const merged = normalizeReferenceList([...prev, ...frames]);
-        const added = merged.length - prev.length;
-        if (added <= 0) {
-          alert(
-            '没有加入新的采样帧（参考已满 8 张，或采样结果与现有参考重复）。请删减参考图或清空后再采样。',
-          );
-          return;
-        }
-        renderPanelFromState({
-          ...state,
-          imageUrls: merged,
-          imageUrl: merged[0] || state.imageUrl,
-        });
-        return;
-      }
-
-      if (!isExtensionContextValid()) return;
-
-      if (panelExtractJobs(state).length >= MAX_PARALLEL_PANEL_EXTRACTS) {
+      const prev = panelReferenceUrls(state);
+      const merged = normalizeReferenceList([...prev, ...frames]);
+      const added = merged.length - prev.length;
+      if (added <= 0) {
         alert(
-          `并行反推已满（至多 ${MAX_PARALLEL_PANEL_EXTRACTS} 条），请等待进行中任务结束后再试。`,
+          '没有加入新的采样帧（参考已满 8 张，或采样结果与现有参考重复）。请删减参考图或清空后再采样。',
         );
         return;
       }
-
-      const urlsOnly = normalizeReferenceList(frames);
-      if (!urlsOnly.length) {
-        alert('采样未得到有效图片帧。');
-        return;
-      }
-
-      sendComposeExtractPrompt(state, urlsOnly, undefined, segmentMeta);
+      renderPanelFromState({
+        ...state,
+        imageUrls: merged,
+        imageUrl: merged[0] || state.imageUrl,
+      });
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       alert(msg);

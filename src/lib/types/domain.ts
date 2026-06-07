@@ -39,7 +39,7 @@ export type ProviderId =
   | 'shukelongda'
   | 'custom';
 
-export type OutputStyle = 'natural-zh' | 'natural-en' | 'sd-tags' | 'midjourney';
+export type OutputStyle = 'natural-zh' | 'natural-en' | 'natural-ja' | 'json';
 
 /**
  * 提示词「策略档位」标识。
@@ -118,6 +118,17 @@ export interface UpdateSettings {
   lastResult: UpdateCheckResult | null;
 }
 
+/**
+ * 某一档策略的用户覆盖参数（未设置的字段沿用该档内置默认值）。
+ * `native` 策略忽略 `instruction`。
+ */
+export interface StrategyOverride {
+  /** 替换系统指令正文；与 customPromptTemplate 互斥 */
+  instruction?: string;
+  temperature?: number;
+  maxTokens?: number;
+}
+
 /** 「一键洗稿」随机变异强度；写入 {@link AppSettings.oneClickRewriteRandomness} */
 export type OneClickRefineRandomness = 'subtle' | 'moderate' | 'bold';
 
@@ -148,13 +159,23 @@ export interface AppSettings {
    *     用户旧数据里写着的 id 仍然能解析回最新可用的组件组合，不会出空白。
    */
   promptStrategy: StrategyId;
+  /**
+   * 各策略档位的独立覆盖参数。键为 {@link StrategyId}，仅持久化用户改过的字段。
+   */
+  strategyOverrides?: Partial<Record<StrategyId, StrategyOverride>>;
   /** 自定义组合策略选用的组件版本（仅 promptStrategy === 'custom' 时生效） */
   customComponents?: StrategyComponents;
-  /** 替换指令集正文的用户文案（仅 custom 策略生效）；与 customPromptTemplate 互斥 */
+  /**
+   * @deprecated 已迁移至 `strategyOverrides`；读取时仅作兼容回退，新写入请用 per-strategy 表。
+   */
   customInstruction?: string;
-  /** 自定义温度（覆盖 sampling 版本） */
+  /**
+   * @deprecated 已迁移至 `strategyOverrides['custom']`；读取时仅作兼容回退。
+   */
   customTemperature?: number;
-  /** 自定义 token 上限（覆盖 sampling 版本） */
+  /**
+   * @deprecated 已迁移至 `strategyOverrides['custom']`；读取时仅作兼容回退。
+   */
   customMaxTokens?: number;
   /**
    * 工具栏弹窗里「编辑 / AI 调整」的默认打开位置（「版本」始终在弹窗内展开，不受此项影响）。
@@ -181,10 +202,17 @@ export interface UserStrategyPreset {
   createdAt: number;
   updatedAt: number;
   customComponents: StrategyComponents;
+  /** 自定义组合档的覆盖参数（温度 / Token / 替换指令） */
+  strategyOverride?: StrategyOverride;
+  /**
+   * @deprecated 已迁移至 `strategyOverride`；读取预设时仍兼容旧快照。
+   */
   customInstruction?: string;
+  /** @deprecated 已迁移至 `strategyOverride` */
   customTemperature?: number;
+  /** @deprecated 已迁移至 `strategyOverride` */
   customMaxTokens?: number;
-  /** 追加模式文案；与 customInstruction 互斥 */
+  /** 追加模式文案；与 strategyOverride.instruction 互斥 */
   customPromptTemplate: string;
 }
 

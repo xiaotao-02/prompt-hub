@@ -1,0 +1,41 @@
+# 1) GUI 客户端（如 GitHub Desktop）可能不带 node 到 PATH，缺失时补常见安装目录
+if ! command -v node >/dev/null 2>&1; then
+  for dir in \
+    "/c/Program Files/nodejs" \
+    "/c/Program Files (x86)/nodejs" \
+    "$LOCALAPPDATA/Programs/nodejs" \
+    "$HOME/AppData/Roaming/npm" \
+    "$HOME/scoop/apps/nodejs/current"; do
+    [ -d "$dir" ] && PATH="$dir:$PATH"
+  done
+  export PATH
+fi
+
+# 2) 通过 npm script 调用，便于 knip 关联 lint-staged 依赖
+if command -v npm >/dev/null 2>&1; then
+  npm run lint-staged --if-present || true
+else
+  echo "husky: 未找到 npm/lint-staged，跳过格式化（请在终端补跑 npm run format）"
+fi
+
+# 3) website 变更时跑轻量类型检查（根目录 build 不覆盖 website，避免 Zeabur next build 才暴露 TS 错误）
+if git diff --cached --name-only | grep -q '^website/'; then
+  if command -v npm >/dev/null 2>&1; then
+    npm run website:typecheck --if-present || exit 1
+  else
+    echo "husky: 未找到 npm，跳过 website:typecheck（请在终端补跑 npm run website:typecheck）"
+  fi
+fi
+
+# 4) src 变更时重生成架构知识图谱（避免 Windows GUI 下 .bin/tsx shim 的 cygpath 路径问题）
+if git diff --cached --name-only | grep -q '^src/'; then
+  if [ -f "node_modules/tsx/dist/cli.mjs" ] && command -v node >/dev/null 2>&1; then
+    node node_modules/tsx/dist/cli.mjs scripts/gen-architecture-map.ts
+    git add docs/architecture-map.generated.md
+  elif command -v npx >/dev/null 2>&1; then
+    npx tsx scripts/gen-architecture-map.ts
+    git add docs/architecture-map.generated.md
+  else
+    echo "husky: 未找到 tsx，跳过 docs:map（请在终端补跑 npm run docs:map）"
+  fi
+fi

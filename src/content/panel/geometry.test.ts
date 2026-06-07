@@ -8,9 +8,15 @@ import {
   resetStableSurfaceHeight,
   stabilizePanelHeightNow,
   maybeResetStableSurfaceForPanelStatus,
+  maybeAdjustGeometryForPanelStatus,
+  computeComposePanelWidth,
+  ratioCenteredGeometry,
+  COMPOSE_PANEL_MIN_WIDTH,
   getStableSurfaceMinHeight,
+  runPanelGeometryTransition,
+  capturePanelHeightBeforeRender,
 } from './geometry';
-import { setPanel, setPanelGeometry } from './state';
+import { panelGeometry, setPanel, setPanelGeometry } from './state';
 
 describe('clampGeometry', () => {
   it('keeps panel within viewport margins', () => {
@@ -120,5 +126,130 @@ describe('maybeResetStableSurfaceForPanelStatus', () => {
     maybeResetStableSurfaceForPanelStatus('compose', 'compose');
 
     expect(getStableSurfaceMinHeight()).toBe(before);
+  });
+});
+
+describe('computeComposePanelWidth', () => {
+  afterEach(() => {
+    setPanelGeometry(null);
+  });
+
+  it('uses minimum width for empty or few references', () => {
+    Object.defineProperty(window, 'innerWidth', { value: 1200, configurable: true });
+    Object.defineProperty(window, 'innerHeight', { value: 900, configurable: true });
+
+    expect(computeComposePanelWidth({ refCount: 0, videoMode: false })).toBe(
+      COMPOSE_PANEL_MIN_WIDTH,
+    );
+    expect(computeComposePanelWidth({ refCount: 1, videoMode: false })).toBe(
+      COMPOSE_PANEL_MIN_WIDTH,
+    );
+  });
+
+  it('grows with more reference thumbnails up to cap', () => {
+    Object.defineProperty(window, 'innerWidth', { value: 1200, configurable: true });
+    Object.defineProperty(window, 'innerHeight', { value: 900, configurable: true });
+
+    expect(computeComposePanelWidth({ refCount: 4, videoMode: false })).toBe(476);
+    expect(computeComposePanelWidth({ refCount: 8, videoMode: false })).toBe(560);
+  });
+});
+
+describe('maybeAdjustGeometryForPanelStatus', () => {
+  afterEach(() => {
+    setPanelGeometry(null);
+    setPanel(null);
+    sessionStorage.removeItem('__image_prompt_extractor_panel_geom__');
+  });
+
+  function setupViewport() {
+    Object.defineProperty(window, 'innerWidth', { value: 1200, configurable: true });
+    Object.defineProperty(window, 'innerHeight', { value: 900, configurable: true });
+  }
+
+  it('narrows width when entering compose from success', () => {
+    setupViewport();
+    setPanelGeometry({ left: 100, top: 80, width: 900 });
+
+    maybeAdjustGeometryForPanelStatus('compose', 'success', { refCount: 1, videoMode: false });
+
+    expect(panelGeometry?.width).toBe(COMPOSE_PANEL_MIN_WIDTH);
+    expect(panelGeometry?.width).toBeLessThan(900);
+  });
+
+  it('restores wide width when leaving compose for loading', () => {
+    setupViewport();
+    setPanelGeometry({ left: 100, top: 80, width: COMPOSE_PANEL_MIN_WIDTH });
+    const wideWidth = ratioCenteredGeometry().width;
+
+    maybeAdjustGeometryForPanelStatus('loading', 'compose', { refCount: 1, videoMode: false });
+
+    expect(panelGeometry?.width).toBe(wideWidth);
+    expect(panelGeometry?.width).toBeGreaterThan(COMPOSE_PANEL_MIN_WIDTH);
+  });
+
+  it('skips auto width changes when widthUserLocked', () => {
+    setupViewport();
+    setPanelGeometry({ left: 100, top: 80, width: 900, widthUserLocked: true });
+
+    maybeAdjustGeometryForPanelStatus('compose', 'success', { refCount: 1, videoMode: false });
+    expect(panelGeometry?.width).toBe(900);
+
+    maybeAdjustGeometryForPanelStatus('loading', 'compose', { refCount: 1, videoMode: false });
+    expect(panelGeometry?.width).toBe(900);
+  });
+
+  it('does not adjust width on compose-to-compose re-render', () => {
+    setupViewport();
+    setPanelGeometry({ left: 100, top: 80, width: 520 });
+
+    maybeAdjustGeometryForPanelStatus('compose', 'compose', { refCount: 3, videoMode: false });
+
+    expect(panelGeometry?.width).toBe(520);
+  });
+});
+
+describe('panel geometry transition', () => {
+  afterEach(() => {
+    setPanelGeometry(null);
+    setPanel(null);
+    vi.restoreAllMocks();
+  });
+
+  it('runPanelGeometryTransition adds geometry-transition class', () => {
+    const root = document.createElement('div');
+    root.className = 'panel';
+    document.body.appendChild(root);
+    setPanel(root);
+
+    runPanelGeometryTransition();
+
+    expect(root.classList.contains('geometry-transition')).toBe(true);
+  });
+
+  it('capturePanelHeightBeforeRender locks inline height in auto height mode', () => {
+    Object.defineProperty(window, 'innerWidth', { value: 1200, configurable: true });
+    Object.defineProperty(window, 'innerHeight', { value: 900, configurable: true });
+    setPanelGeometry({ left: 24, top: 24, width: 720 });
+    const root = document.createElement('div');
+    root.className = 'panel';
+    document.body.appendChild(root);
+    setPanel(root);
+    vi.spyOn(root, 'getBoundingClientRect').mockReturnValue({
+      x: 0,
+      y: 0,
+      top: 0,
+      left: 0,
+      right: 720,
+      bottom: 480,
+      width: 720,
+      height: 480,
+      toJSON: () => ({}),
+    } as DOMRect);
+
+    capturePanelHeightBeforeRender();
+
+    expect(root.style.height).toBe('480px');
+    expect(root.classList.contains('geometry-transition')).toBe(true);
   });
 });

@@ -18,6 +18,8 @@ import { trimSlash } from '../url';
 import {
   emitBufferedExtractProgress,
   emitBufferedRefineProgress,
+  revealBufferedExtractProgress,
+  revealBufferedRefineProgress,
   safeProgress,
   safeRefineProgress,
   type ExtractProgressFn,
@@ -30,6 +32,7 @@ export async function callAnthropic(
   instruction: string,
   strategy: PromptStrategy,
   onProgress?: ExtractProgressFn,
+  signal?: AbortSignal,
 ): Promise<string> {
   const url = `${trimSlash(cfg.baseUrl)}/messages`;
   const imgBlocks = imgs.map((img) => ({
@@ -63,6 +66,7 @@ export async function callAnthropic(
       Accept: 'text/event-stream',
     },
     body: JSON.stringify(body),
+    ...(signal ? { signal } : {}),
   });
   if (!resp.ok) {
     throw new Error(await describeRespFailure(resp, 'Claude'));
@@ -80,7 +84,7 @@ export async function callAnthropic(
       .filter((p) => p?.type === 'text')
       .map((p) => p.text || '')
       .join('');
-    emitBufferedExtractProgress(onProgress, final);
+    await revealBufferedExtractProgress(onProgress, final, signal);
     return final;
   }
 
@@ -178,7 +182,7 @@ export async function callAnthropicText(
       .filter((p: { type?: string }) => p?.type === 'text')
       .map((p: { text?: string }) => p.text || '')
       .join('');
-    emitBufferedRefineProgress(onProgress, final);
+    await revealBufferedRefineProgress(onProgress, final);
     return final;
   }
 

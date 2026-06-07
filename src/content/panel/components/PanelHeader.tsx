@@ -7,10 +7,11 @@ export type PanelHeaderProps = {
   dotClass: string;
   title: ReactNode;
   badges?: ReactNode;
+  headerExtra?: ReactNode;
   onClose?: () => void;
 };
 
-export function PanelHeader({ dotClass, title, badges, onClose }: PanelHeaderProps) {
+export function PanelHeader({ dotClass, title, badges, headerExtra, onClose }: PanelHeaderProps) {
   return (
     <div className="header">
       <div className="title">
@@ -18,6 +19,7 @@ export function PanelHeader({ dotClass, title, badges, onClose }: PanelHeaderPro
         <span>{title}</span>
         {badges}
       </div>
+      {headerExtra}
       <button
         type="button"
         className="icon-btn"

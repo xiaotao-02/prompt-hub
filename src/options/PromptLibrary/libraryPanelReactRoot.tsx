@@ -33,7 +33,6 @@ export function renderLibraryPanelReact(state: PanelState): void {
       state={state}
       title="提示词库编辑"
       onClose={renderProps.onClose}
-      hideRetry
       jumpToOriginal={{
         pageUrl: renderProps.pageUrl,
         onJump: renderProps.onJumpToOriginal,

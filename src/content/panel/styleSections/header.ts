@@ -1,10 +1,12 @@
 /** Panel CSS section: header */
 export const headerCss = `
 .header {
+  position: relative;
   display: flex; align-items: center; justify-content: space-between;
   padding: 10px 12px;
   border-bottom: 1px solid var(--pe-border);
   flex: none;
+  overflow: visible;
   /* header 整条作为拖拽把手；内部 icon-btn 会单独覆盖回 pointer。 */
   cursor: move;
   user-select: none;

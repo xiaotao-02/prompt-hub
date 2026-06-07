@@ -23,6 +23,7 @@ function patchExtractJob(
 function withExtractMeta(state: PanelState, patch: ExtractProgressPatch): PanelState {
   let next = state;
   if (patch.strategy !== undefined) next = { ...next, strategy: patch.strategy };
+  if (patch.outputStyle !== undefined) next = { ...next, outputStyle: patch.outputStyle };
   if (patch.provider !== undefined) next = { ...next, provider: patch.provider };
   if (patch.model !== undefined) next = { ...next, model: patch.model };
   if (patch.oneClickRefineRandomness !== undefined) {
@@ -63,6 +64,7 @@ export function applyExtractProgress(
         patch.partial !== undefined ||
         patch.streamMode !== undefined ||
         patch.strategy !== undefined ||
+        patch.outputStyle !== undefined ||
         patch.provider !== undefined ||
         patch.model !== undefined ||
         patch.oneClickRefineRandomness !== undefined),

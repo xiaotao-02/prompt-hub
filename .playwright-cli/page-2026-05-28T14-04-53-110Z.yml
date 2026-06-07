@@ -1,5 +1,5 @@
 - generic [active] [ref=e1]:
-    - heading "Prompt Hub · 开发 UI 实时预览" [level=1] [ref=e2]
+    - heading "Prompt Extracto · 开发 UI 实时预览" [level=1] [ref=e2]
     - paragraph [ref=e3]:
         - text: 根目录
         - code [ref=e4]: npm run dev

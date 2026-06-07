@@ -169,13 +169,14 @@ function VersionItem({
         {!isCurrent ? (
           <button
             type="button"
-            className="link-btn primary restore-btn"
+            className="link-btn restore-btn"
             data-action="restore-version"
             data-version-id={v.id}
+            title="恢复此版本"
             onClick={stopAndRun('restore-version')}
           >
             <IconHtml html={ICON_RESTORE} />
-            <span>恢复此版本</span>
+            <span>恢复</span>
           </button>
         ) : null}
         {total > 1 ? (

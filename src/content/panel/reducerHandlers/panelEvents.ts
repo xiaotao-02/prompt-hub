@@ -1,6 +1,7 @@
 import type {
   ExtractStage,
   OneClickRefineRandomness,
+  OutputStyle,
   PromptVersion,
   RefineStage,
   StrategyId,
@@ -13,6 +14,7 @@ export interface ExtractProgressPatch {
   partial?: string;
   streamMode?: StreamDeliveryMode;
   strategy?: StrategyId;
+  outputStyle?: OutputStyle;
   provider?: string;
   model?: string;
   oneClickRefineRandomness?: OneClickRefineRandomness;
@@ -39,6 +41,8 @@ export type PanelEvent =
       error: string;
     }
   | { type: 'ui.strategy'; strategy: StrategyId }
+  | { type: 'ui.model'; model: string; provider?: string }
+  | { type: 'ui.outputStyle'; outputStyle: OutputStyle }
   | { type: 'ui.oneClickRefineRandomness'; level: OneClickRefineRandomness }
   | { type: 'ui.toggleVersionsOpen'; open?: boolean }
   | {

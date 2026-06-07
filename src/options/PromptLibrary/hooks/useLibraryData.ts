@@ -21,6 +21,7 @@ export function useLibraryData(scanInput: LibraryScanInput) {
   const [hasMore, setHasMore] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const loadMoreSentinelRef = useRef<HTMLDivElement | null>(null);
   const listCursorRef = useRef<string | undefined>(undefined);
 
@@ -32,6 +33,7 @@ export function useLibraryData(scanInput: LibraryScanInput) {
 
   const load = useCallback(async () => {
     setLoading(true);
+    setLoadError(null);
     try {
       const full = buildUsesFullLibraryScan(scanInput);
       const [stats, fs] = await Promise.all([scanHistoryLibraryStats(), getFolders()]);
@@ -48,6 +50,10 @@ export function useLibraryData(scanInput: LibraryScanInput) {
         setListCursor(nextCursor);
         setHasMore(Boolean(nextCursor) && stats.total > items.length);
       }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setLoadError(msg);
+      console.warn('[PromptHub] library load failed', err);
     } finally {
       setLoading(false);
     }
@@ -120,6 +126,7 @@ export function useLibraryData(scanInput: LibraryScanInput) {
     setFolders,
     libraryStats,
     loading,
+    loadError,
     loadingMore,
     hasMore,
     loadMoreSentinelRef,

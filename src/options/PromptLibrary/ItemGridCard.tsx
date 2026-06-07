@@ -3,11 +3,12 @@ import { useRef, useState } from 'react';
 import { Copy, Check, Pin, Trash2, FolderInput, Image } from 'lucide-react';
 import type { HistoryItem, LibraryFolder } from '@/lib/types';
 import { formatTime } from '@/lib/format/time';
+import { outputStyleLabel } from '@/lib/strategies-meta';
 import { UI_ACTION } from '@/lib/uiCopy';
 import { Thumb } from './Thumb';
 import { IconBtn } from './IconBtn';
 import { MoveToMenu } from './parts/MoveToMenu';
-import { getProjectColor, getProviderAccent } from './types';
+import { getProjectColor } from './types';
 import { SelectCheckbox } from './SelectCheckbox';
 
 // ============== 网格卡片 ==============
@@ -46,7 +47,6 @@ export function ItemGridCard({
   const moveBtnWrapRef = useRef<HTMLDivElement>(null);
   const folder = item.folderId ? folders.find((f) => f.id === item.folderId) : undefined;
   const folderColor = folder ? getProjectColor(folder.color) : null;
-  const providerAccent = getProviderAccent(item.provider);
   const canJump = !!item.pageUrl && /^https?:/i.test(item.pageUrl);
   const stop = (e: React.SyntheticEvent) => e.stopPropagation();
   const onCardClick = (e: React.MouseEvent<HTMLDivElement>) => {
@@ -63,10 +63,8 @@ export function ItemGridCard({
   return (
     <div
       data-history-id={item.id}
-      className={`group card !p-0 overflow-hidden flex flex-row min-h-0 transition-all duration-200 cursor-pointer hover:shadow-lg hover:-translate-y-1 hover:ring-1 hover:ring-violet-200/60 dark:hover:ring-violet-500/20 ${
-        item.pinned
-          ? 'border-amber-400/80 dark:border-amber-500/50 ring-1 ring-amber-200/40 dark:ring-amber-500/15'
-          : ''
+      className={`group rounded-md border border-zinc-200/90 dark:border-zinc-800 bg-white dark:bg-zinc-900 !p-0 overflow-hidden flex flex-row min-h-0 shadow-sm transition-shadow duration-150 cursor-pointer hover:shadow-md hover:ring-1 hover:ring-zinc-200/80 dark:hover:ring-zinc-700/60 ${
+        item.pinned ? 'ring-1 ring-violet-400/25 dark:ring-violet-500/20' : ''
       }`}
       onClick={onCardClick}
       role="button"
@@ -81,22 +79,23 @@ export function ItemGridCard({
       }}
     >
       <div className="flex-1 min-w-0 flex flex-col min-h-0">
-        <div className="relative aspect-[4/3] bg-zinc-100 dark:bg-zinc-800 overflow-hidden">
+        <div className="relative aspect-[5/3] bg-zinc-100 dark:bg-zinc-800 overflow-hidden">
           <Thumb item={item} size="full" />
           <SelectCheckbox
             checked={checked}
             onToggle={onToggleSelect}
-            className="absolute left-2 top-2 z-[1]"
+            compact
+            className="absolute left-1.5 top-1.5 z-[1]"
           />
-          <div className="absolute inset-x-0 top-0 p-2 flex items-start justify-end pointer-events-none">
-            <div className="pointer-events-auto flex items-center gap-1">
+          <div className="absolute inset-x-0 top-0 p-1.5 flex items-start justify-end pointer-events-none">
+            <div className="pointer-events-auto flex items-center gap-0.5">
               {item.pinned && (
-                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-amber-500/95 text-white text-[10px] font-medium shadow-sm backdrop-blur-sm">
-                  <Pin className="w-3 h-3" /> 置顶
+                <span className="inline-flex items-center gap-0.5 px-1 py-px rounded bg-black/50 text-white/95 text-[9px] font-medium backdrop-blur-sm">
+                  <Pin className="w-2.5 h-2.5" />
                 </span>
               )}
               {versionCount > 1 && (
-                <span className="inline-flex items-center px-1.5 py-0.5 rounded-full bg-violet-500/95 text-white text-[10px] font-medium shadow-sm backdrop-blur-sm">
+                <span className="inline-flex items-center px-1 py-px rounded bg-black/50 text-white/95 text-[9px] font-medium tabular-nums backdrop-blur-sm">
                   v{versionCount}
                 </span>
               )}
@@ -104,31 +103,32 @@ export function ItemGridCard({
           </div>
           <div className="absolute inset-x-0 bottom-0 pointer-events-none">
             <div
-              className="absolute inset-0 bg-gradient-to-t from-black/45 via-black/10 to-transparent opacity-0 group-hover:opacity-100 transition duration-200"
+              className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition duration-200"
               aria-hidden
             />
-            <div className="relative p-2 flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition duration-200 pointer-events-auto">
+            <div className="relative p-1.5 flex items-center justify-end gap-0.5 opacity-0 group-hover:opacity-100 transition duration-200 pointer-events-auto">
               <IconBtn
+                size="sm"
                 onClick={() => onCopy(item.prompt, `cur:${item.id}`)}
                 title={`${UI_ACTION.copy}提示词`}
                 active={copiedKey === `cur:${item.id}`}
-                activeColor="emerald"
               >
                 {copiedKey === `cur:${item.id}` ? (
-                  <Check className="w-3.5 h-3.5" />
+                  <Check className="w-3 h-3" />
                 ) : (
-                  <Copy className="w-3.5 h-3.5" />
+                  <Copy className="w-3 h-3" />
                 )}
               </IconBtn>
               <IconBtn
+                size="sm"
                 onClick={onTogglePin}
                 title={item.pinned ? '取消置顶' : '置顶'}
                 active={item.pinned}
-                activeColor="amber"
               >
-                <Pin className="w-3.5 h-3.5" />
+                <Pin className="w-3 h-3" />
               </IconBtn>
               <IconBtn
+                size="sm"
                 onClick={onJumpToOriginal}
                 disabled={!canJump || jumpBusy}
                 title={
@@ -138,26 +138,23 @@ export function ItemGridCard({
                       ? UI_ACTION.jumpToOriginalTitle
                       : '该记录没有可用的原图网页地址'
                 }
-                hoverColor="violet"
                 active={jumpBusy}
-                activeColor="violet"
               >
-                <Image className="w-3.5 h-3.5" />
+                <Image className="w-3 h-3" />
               </IconBtn>
               {onMoveTo && (
                 <div ref={moveBtnWrapRef} onClick={stop}>
                   <IconBtn
+                    size="sm"
                     onClick={() => setMoveOpen((v) => !v)}
                     title={
                       folder
                         ? `当前在「${folder.name}」，点击移动到其他文件夹`
                         : '移动到项目 / 文件夹'
                     }
-                    hoverColor="amber"
                     active={!!folder}
-                    activeColor="amber"
                   >
-                    <FolderInput className="w-3.5 h-3.5" />
+                    <FolderInput className="w-3 h-3" />
                   </IconBtn>
                   {moveOpen && (
                     <MoveToMenu
@@ -174,35 +171,36 @@ export function ItemGridCard({
                   )}
                 </div>
               )}
-              <IconBtn onClick={onDelete} title="删除" hoverColor="rose">
-                <Trash2 className="w-3.5 h-3.5" />
+              <IconBtn size="sm" onClick={onDelete} title="删除" hoverColor="rose">
+                <Trash2 className="w-3 h-3" />
               </IconBtn>
             </div>
           </div>
         </div>
 
-        <div className="p-3 flex flex-col gap-2 flex-1">
-          <div className="flex items-center gap-1.5 flex-wrap text-[10.5px]">
-            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-zinc-100 dark:bg-zinc-800/80 font-medium text-zinc-600 dark:text-zinc-300">
-              <span className={`w-1.5 h-1.5 rounded-full ${providerAccent} flex-none`} />
-              {item.provider}
-            </span>
-            <span className="text-zinc-400 dark:text-zinc-500">{item.style}</span>
-            <span className="text-zinc-300 dark:text-zinc-600">·</span>
-            <span className="text-zinc-400 dark:text-zinc-500 tabular-nums">
+        <div className="px-2 py-1.5 flex flex-col gap-1 flex-1 min-w-0">
+          <div className="flex items-center gap-1 min-w-0 truncate text-[10px] text-zinc-400 dark:text-zinc-500">
+            <span className="shrink-0">{item.provider}</span>
+            <span className="text-zinc-300 dark:text-zinc-600 shrink-0">·</span>
+            <span className="truncate">{outputStyleLabel(item.style)}</span>
+            <span className="text-zinc-300 dark:text-zinc-600 shrink-0">·</span>
+            <span className="tabular-nums shrink-0">
               {formatTime(item.updatedAt || item.createdAt)}
             </span>
             {folder && folderColor && (
-              <span
-                className="inline-flex items-center gap-1 px-1.5 py-px rounded bg-zinc-100 dark:bg-zinc-800 max-w-[120px] truncate"
-                title={`项目 / 文件夹：${folder.name}`}
-              >
-                <span className={`w-1.5 h-1.5 rounded-full ${folderColor.dot} flex-none`} />
-                <span className="truncate">{folder.name}</span>
-              </span>
+              <>
+                <span className="text-zinc-300 dark:text-zinc-600 shrink-0">·</span>
+                <span
+                  className="inline-flex items-center gap-1 min-w-0 truncate"
+                  title={`项目 / 文件夹：${folder.name}`}
+                >
+                  <span className={`w-1.5 h-1.5 rounded-full ${folderColor.dot} flex-none`} />
+                  <span className="truncate">{folder.name}</span>
+                </span>
+              </>
             )}
           </div>
-          <p className="text-[13px] leading-[1.6] text-zinc-700 dark:text-zinc-300 line-clamp-3 whitespace-pre-wrap break-words flex-1">
+          <p className="text-xs leading-snug text-zinc-700 dark:text-zinc-300 line-clamp-2 whitespace-pre-wrap break-words flex-1">
             {item.prompt || <span className="text-zinc-400 italic">（空）</span>}
           </p>
         </div>

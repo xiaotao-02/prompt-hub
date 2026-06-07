@@ -1,24 +1,21 @@
-import { useState } from 'react';
-import { Eye, EyeOff, ExternalLink, RefreshCw } from 'lucide-react';
-import { Button, SegmentedControl, cx } from '@/components/ui';
+import { ExternalLink, RefreshCw } from 'lucide-react';
+import { normalizeOpenAIBase } from '@/lib/api/url';
+import { Button, PasswordInput, SegmentedControl, cx } from '@/components/ui';
 import ApiQuickSetup from '../../ApiQuickSetup';
 import ProviderSelect from '../../ProviderSelect';
-import ModelPicker from '../../ModelPicker';
+import { ModelSelectorField } from '../../ModelSelectorField';
 import ProviderModelWarning from '../../ProviderModelWarning';
 import ProviderVisionSummary from '../../ProviderVisionSummary';
 import ProviderQuotaBadge from '@/components/ProviderQuotaBadge';
 import ConnectionFieldColumn from '../parts/ConnectionFieldColumn';
+import { SettingsSection } from '../parts/SettingsSection';
 import type { ProviderSettingsPanelProps } from '../hooks/useProviderConnection';
-import type { SettingsPanelId } from '../types';
-
-interface Props extends ProviderSettingsPanelProps {
-  onNavigatePanel: (id: SettingsPanelId) => void;
-}
 
 export default function ProviderSettingsPanel({
   settings,
   providerRole,
-  setProviderRole,  fetchingModels,
+  setProviderRole,
+  fetchingModels,
   fetchingProviderIds,
   fetchModelsError,
   providerInferenceHint,
@@ -29,22 +26,20 @@ export default function ProviderSettingsPanel({
   discovered,
   discoveredVision,
   editingModelValue,
-  manualModelVision,  hasApiKey,
+  manualModelVision,
+  hasApiKey,
   selectedProviderId,
   providerCount,
-  dirty,
-  persistAndMark,
   updateEditingCfg,
   selectProviderForRole,
   onModelChange,
   onFetchModels,
+  shouldHighlightFetchModels,
   applyConfig,
   focusModelField,
   modelFieldRef,
   modelPickerRef,
-}: Props) {
-  const [showKey, setShowKey] = useState(false);
-
+}: ProviderSettingsPanelProps) {
   const fetchModelsButton = (
     <Button
       type="button"
@@ -52,84 +47,55 @@ export default function ProviderSettingsPanel({
       size="xs"
       onClick={() => void onFetchModels()}
       disabled={fetchingModels || !editingCfg.baseUrl || !hasApiKey}
-      title="从该端点 /models 接口拉取所有可用模型"
-      className="!px-1.5"
+      title={
+        shouldHighlightFetchModels
+          ? '已拉取到可用模型，点击应用最新模型'
+          : '从该端点 /models 接口拉取所有可用模型'
+      }
+      className={cx('!px-1.5', shouldHighlightFetchModels && 'ui-fetch-models-highlight')}
+      aria-label={fetchingModels ? '拉取中' : '拉取模型'}
     >
-      <RefreshCw className={`w-3.5 h-3.5 ${fetchingModels ? 'animate-spin' : ''}`} />
-      <span className="sr-only">{fetchingModels ? '拉取中' : '从端点拉取'}</span>
+      <RefreshCw className={cx('w-3.5 h-3.5', fetchingModels && 'animate-spin')} />
+      <span className="sr-only">{fetchingModels ? '拉取中' : '拉取模型'}</span>
+      <span className="text-[11px] ml-1">拉取模型</span>
     </Button>
   );
 
   const modelColumnControls = (
-    <div id="provider-model-field" ref={modelFieldRef} className="min-w-0 space-y-1.5">
-      {discovered.length > 0 ? (
-        <ModelPicker
-          ref={modelPickerRef}
-          models={discovered}
-          visionById={discoveredVision}
-          value={editingModelValue}
-          onChange={onModelChange}
-          discoveredAt={editingCfg.discoveredAt}
-          fetching={fetchingModels}
-        />
-      ) : (
-        <input
-          className="input font-mono text-sm"
-          value={editingModelValue}
-          onChange={(e) => onModelChange(e.target.value)}
-          placeholder={editingMeta.defaultModel}
-          disabled={fetchingModels}
-        />
-      )}
-      {discovered.length > 0 && !discovered.includes(editingModelValue) && (
-        <input
-          className="input font-mono text-xs"
-          value={editingModelValue}
-          onChange={(e) => onModelChange(e.target.value)}
-          placeholder="不在列表中可手动输入"
-        />
-      )}
-    </div>
+    <ModelSelectorField
+      id="provider-model-field"
+      containerRef={modelFieldRef}
+      value={editingModelValue}
+      onChange={onModelChange}
+      discovered={discovered}
+      discoveredVision={discoveredVision}
+      discoveredAt={editingCfg.discoveredAt}
+      fetching={fetchingModels}
+      defaultModel={editingMeta.defaultModel}
+      modelPickerRef={modelPickerRef}
+    />
   );
 
   return (
-    <section className="space-y-5">
-      <div className="space-y-2">
-        <SegmentedControl
-          fullWidth
-          value={providerRole}
-          onChange={setProviderRole}
-          ariaLabel="API 用途"
-          options={[
-            { value: 'extract', label: '首选 API' },
-            { value: 'refine', label: '次选 API' },
-          ]}
-        />
-        <p className="text-[11px] text-zinc-500 dark:text-zinc-400 leading-snug">
-          {providerRole === 'extract'
-            ? '用于右键/面板从图片生成提示词、重新生成。'
-            : '用于 AI 调整、一键洗稿等对已生成提示词的文本改写；默认与首选 API 相同，可单独选择供应商或模型。'}
-        </p>
-      </div>
-
-
-
-      <div>
-        <label className="label" htmlFor="provider-select">
-          模型供应商列表
-          <span className="font-normal text-zinc-400 ml-1">（共 {providerCount} 个）</span>
-        </label>
+    <section className="space-y-4">
+      <SettingsSection
+        title={
+          <>
+            模型供应商
+            <span className="font-normal text-zinc-400 ml-1">（共 {providerCount} 个）</span>
+          </>
+        }
+      >
         <ProviderSelect
           id="provider-select"
           value={selectedProviderId}
           onChange={selectProviderForRole}
           fetchingIds={fetchingProviderIds}
-          className="mt-1"
         />
-      </div>
+      </SettingsSection>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 items-start">
-        
+      <section className="space-y-3">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 items-start">
           <ConnectionFieldColumn
             label="API Key"
             labelExtra={
@@ -145,60 +111,68 @@ export default function ProviderSettingsPanel({
               ) : undefined
             }
           >
-            <div className="relative">
-              <input
-                className="input pr-10"
-                type={showKey ? 'text' : 'password'}
-                value={editingCfg.apiKey}
-                placeholder="sk-..."
-                onChange={(e) => updateEditingCfg({ apiKey: e.target.value })}
-                onBlur={() => {
-                  const key = editingCfg.apiKey.trim();
-                  if (key.length < 6 || !dirty) return;
-                  void persistAndMark(settings);
-                }}
-              />
-              <button
-                type="button"
-                onClick={() => setShowKey((v) => !v)}
-                className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300"
-              >
-                {showKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-              </button>
-            </div>
+            <PasswordInput
+              value={editingCfg.apiKey}
+              placeholder="sk-..."
+              onChange={(e) => updateEditingCfg({ apiKey: e.target.value })}
+            />
           </ConnectionFieldColumn>
-        
 
-        <ConnectionFieldColumn label="Base URL">
-          <input
-            className="input"
-            value={editingCfg.baseUrl}
-            onChange={(e) => updateEditingCfg({ baseUrl: e.target.value })}
-            placeholder={editingMeta.defaultBaseUrl}
-            readOnly={false}
-          />
-        </ConnectionFieldColumn>
+          <ConnectionFieldColumn label="Base URL">
+            <input
+              className="input"
+              value={editingCfg.baseUrl}
+              onChange={(e) => updateEditingCfg({ baseUrl: e.target.value })}
+              onBlur={(e) => {
+                const next = normalizeOpenAIBase(e.target.value);
+                if (next && next !== editingCfg.baseUrl) {
+                  updateEditingCfg({ baseUrl: next });
+                }
+              }}
+              placeholder={editingMeta.defaultBaseUrl}
+            />
+          </ConnectionFieldColumn>
+        </div>
+      </section>
 
-        <ConnectionFieldColumn label="选择模型" labelExtra={fetchModelsButton}>
-          {modelColumnControls}
-        </ConnectionFieldColumn>
-      </div>
+      <SettingsSection
+        title="模型选择"
+        description={
+          providerRole === 'extract'
+            ? '用于右键/面板从图片生成提示词、重新生成。'
+            : '用于 AI 调整、文本改写，选择低级模型省算力。'
+        }
+        descriptionInline
+        trailing={
+          <div className="flex items-center gap-2 text-zinc-600 dark:text-zinc-300">
+            <SegmentedControl
+              value={providerRole}
+              onChange={setProviderRole}
+              ariaLabel="模型用途"
+              options={[
+                { value: 'extract', label: '反推模型' },
+                { value: 'refine', label: '改写模型' },
+              ]}
+            />
+            {fetchModelsButton}
+          </div>
+        }
+      >
+        {modelColumnControls}
+      </SettingsSection>
 
-              <ApiQuickSetup
-          settings={settings}
-          role={providerRole}
-          applyConfig={applyConfig}
-          providerInferenceHint={providerInferenceHint}
-          onDismissInferenceHint={() => setProviderInferenceHint(null)}
-          onFocusModelField={focusModelField}
-        />
+      <ApiQuickSetup
+        settings={settings}
+        role={providerRole}
+        applyConfig={applyConfig}
+        providerInferenceHint={providerInferenceHint}
+        onDismissInferenceHint={() => setProviderInferenceHint(null)}
+        onFocusModelField={focusModelField}
+      />
 
-      <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/40 p-4 min-h-[120px] space-y-3">
-        <span className="text-[11px] font-medium text-zinc-600 dark:text-zinc-300">
-          模型供应商简介和描述
-        </span>
+      <SettingsSection title="模型供应商简介">
         {editingMeta.description && (
-          <p className="text-sm text-zinc-600 dark:text-zinc-300 leading-relaxed">
+          <p className="text-xs text-zinc-600 dark:text-zinc-300 leading-relaxed">
             {editingMeta.description}
           </p>
         )}
@@ -210,9 +184,6 @@ export default function ProviderSettingsPanel({
         {providerRole === 'refine' && (
           <p className="text-[11px] text-zinc-500 dark:text-zinc-400 leading-snug">
             建议使用响应快、成本低的文本模型。
-            {!settings.refineProvider || settings.refineProvider === settings.activeProvider
-              ? ' 默认与首选相同；修改此处模型后将单独用于 AI 调整，不会改动识图反推所用模型。'
-              : ''}
           </p>
         )}
         {editingProviderId && (
@@ -254,11 +225,11 @@ export default function ProviderSettingsPanel({
         )}
         {hasApiKey && discovered.length === 0 && !fetchingModels && (
           <p className="text-[11px] text-zinc-400 leading-snug">
-            填写 Key 后将自动从端点拉取模型；也可在「选择模型」旁点拉取图标
+            填写 Key 后将自动从端点拉取模型；也可在「模型选择」旁点拉取图标
           </p>
         )}
         {hasApiKey && <ProviderQuotaBadge providerId={editingProviderId} />}
-      </div>
+      </SettingsSection>
     </section>
   );
 }

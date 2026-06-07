@@ -2,10 +2,10 @@ import { describe, expect, it } from 'vitest';
 import { referencesCss } from './references';
 
 describe('referencesCss', () => {
-  it('wraps reference thumbnails instead of horizontal scroll', () => {
+  it('wraps default reference thumbnails; compact strip scrolls horizontally', () => {
     expect(referencesCss).toContain('flex-wrap: wrap');
-    expect(referencesCss).not.toContain('flex-wrap: nowrap');
-    expect(referencesCss).not.toContain('overflow-x: auto');
+    expect(referencesCss).toMatch(/\.ref-strip-compact[\s\S]*flex-wrap: nowrap/);
+    expect(referencesCss).toMatch(/\.ref-strip-compact[\s\S]*overflow-x: auto/);
   });
 
   it('lets ref-thumb-wrap grow with wrapped content', () => {

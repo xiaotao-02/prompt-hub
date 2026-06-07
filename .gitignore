@@ -1,6 +1,8 @@
 node_modules
 dist
 dist-zip
+dist-unpacked/
+.github/secrets-ref.md
 website/dist/
 website/.astro/
 website/node_modules/
@@ -12,16 +14,36 @@ website/node_modules/
 .idea
 .env
 .env.local
+output/zeabur-api.env
+output/zeabur-api-admin-paste.env
+output/zeabur-website.env
+output/zeabur-smtp.env
+output/zeabur-api-domain.env
+output/zeabur-website-domain.env
+output/zeabur-production-domain.env
+output/private-*.envpack
+output/.zeabur-token
+output/zeabur-admin-google-generated.txt
+output/zeabur-env-*.txt
+output/zeabur-raw-env-extract.txt
+output/zeabur-state*.txt
+output/zeabur-live-state*.txt
+output/zeabur-status.txt
+output/zeabur-new-service.txt
+output/zeabur-*.png
+output/*.envpack
+private-backup/
 services/api/data/
 # 平台运行时数据（显式规则，防误提交）
 *.db
 *.db-shm
 *.db-wal
 services/api/upstreams.json
+services/api/.env
 
 .chrome-dev-profile
 *.tsbuildinfo
-prompt-hub-data.json
+prompt-extracto-data.json
 *-data.json
 
 # 商店素材：LibTV 中间产物与本地项目绑定不入仓；成品图与配置入仓
@@ -33,3 +55,4 @@ store-assets/libtv/*.log
 hc-1/
 .export-byok-test/
 
+/website/.next

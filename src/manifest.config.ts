@@ -1,9 +1,9 @@
 import { defineManifest } from '@crxjs/vite-plugin';
 import pkg from '../package.json';
-
 export default defineManifest({
   manifest_version: 3,
   name: 'Prompt Hub',
+  // 上线前：将 github.com/xiaotao-02/prompt-hub 替换为真实域名（见 store-listing/CHECKLIST.md §0；npm run check:launch-domain）
   // Chrome Web Store 对 manifest description 显示截断在 ~132 字符，
   // 这里保留中文一句话；商店页面更详细的中英描述见 store-listing/。
   description:

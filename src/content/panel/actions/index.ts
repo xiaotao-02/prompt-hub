@@ -30,7 +30,6 @@ export const DATA_ACTION_HANDLERS: Record<string, DataActionHandler> = {
   'add-ref-url': handleAddRefUrl,
   'pick-ref-file': handlePickRefFile,
   'sample-video-segment-to-refs': handleVideoSegment,
-  'extract-video-segment': handleVideoSegment,
   copy: handleCopy,
   retry: handleRetry,
   'open-options': handleOpenOptions,

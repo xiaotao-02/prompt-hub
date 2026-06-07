@@ -14,7 +14,7 @@ export const PREVIEW_DEMO_SD_TAGS_ID = 'preview-demo-2' as const;
 export const PREVIEW_DEMO_REFINED_PAIR_ID = 'preview-demo-3' as const;
 
 /** 开发预览：10 版本链条（Popup 折叠列表 >6 条）占位记录 id。 */
-const PREVIEW_DEMO_TEN_VERSIONS_ID = 'preview-demo-10v' as const;
+export const PREVIEW_DEMO_TEN_VERSIONS_ID = 'preview-demo-10v' as const;
 
 /** 四条占位记录在库中的顺序（与 `ensurePreviewLibrarySeed` 写入批次一致）。 */
 export const PREVIEW_DEMO_ALL_IDS = [
@@ -87,7 +87,7 @@ export function buildPreviewSeedItems(base: number): HistoryItem[] {
     versionNo: 0,
     createdAt: base - 240_000,
     source: 'extracted',
-    meta: { provider: 'openai', model: 'gpt-4o', style: 'sd-tags' },
+    meta: { provider: 'openai', model: 'gpt-4o', style: 'json' },
   };
 
   const item2: HistoryItem = {
@@ -97,7 +97,7 @@ export function buildPreviewSeedItems(base: number): HistoryItem[] {
     prompt: v2a.prompt,
     provider: 'openai',
     model: 'gpt-4o',
-    style: 'sd-tags',
+    style: 'json',
     pageUrl: 'https://example.com/neon-city',
     pageTitle: '预览 · SD 标签风格占位',
     createdAt: base - 240_000,

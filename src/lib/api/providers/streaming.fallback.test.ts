@@ -94,4 +94,50 @@ describe('callOpenAICompatible buffered extract progress', () => {
       events.some((e) => e.streamMode === 'buffered' && e.partial === 'extracted prompt'),
     ).toBe(true);
   });
+
+  it('reveals buffered JSON with multiple increasing partial prefixes', async () => {
+    vi.useFakeTimers();
+    const longText = 'extracted prompt with enough length for client-side stream reveal animation';
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () =>
+        jsonResponse({
+          choices: [{ message: { content: longText } }],
+        }),
+      ),
+    );
+
+    const events: Array<{ streamMode?: string; partial?: string }> = [];
+    const run = callOpenAICompatible(
+      openaiCfg,
+      [
+        {
+          dataUrl: 'data:image/jpeg;base64,xx',
+          base64: 'xx',
+          mediaType: 'image/jpeg',
+          byteLength: 1,
+        },
+      ],
+      'describe image',
+      getStrategy('v030'),
+      (ev) => {
+        events.push({ streamMode: ev.streamMode, partial: ev.partial });
+      },
+    );
+    await vi.runAllTimersAsync();
+    const result = await run;
+
+    expect(result).toBe(longText);
+    const partials = events
+      .filter((e) => e.streamMode === 'buffered' && e.partial !== undefined)
+      .map((e) => e.partial!);
+    expect(partials.length).toBeGreaterThan(1);
+    for (let i = 1; i < partials.length; i++) {
+      expect(partials[i]!.length).toBeGreaterThanOrEqual(partials[i - 1]!.length);
+      expect(longText.startsWith(partials[i]!)).toBe(true);
+    }
+    expect(partials[partials.length - 1]).toBe(longText);
+
+    vi.useRealTimers();
+  });
 });

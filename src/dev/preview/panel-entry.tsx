@@ -11,7 +11,25 @@ import type { HistoryItem } from '@/lib/types';
 import { getHistoryItem } from '@/lib/storage';
 import { STYLE } from '@/content/panel/styles';
 import type { PanelState } from '@/content/panel/state';
-import { setCurrentState, setPanel, panelActions, panel } from '@/content/panel/state';
+import {
+  setCurrentState,
+  setPanel,
+  panelActions,
+  panel,
+  panelReferenceUrls,
+  setComposeCollectMode,
+  getComposeCollectMode,
+  setComposeSelectedVideoIndex,
+  applyDefaultComposeVideoSegment,
+  setPanelGeometry,
+} from '@/content/panel/state';
+import { listViewportVideos } from '@/content/videoSegmentSample';
+import {
+  applyGeometryToPanel,
+  ensureGeometry,
+  maybeAdjustGeometryForPanelStatus,
+  ratioCenteredGeometry,
+} from '@/content/panel/geometry';
 import { bindEvents, cancelPendingDirtyChromeDeferred } from '@/content/panel/panelShell';
 import {
   stopLoadingTicker,
@@ -36,6 +54,33 @@ const PREVIEW_PANEL_LAYOUT_CSS = `
 
 const RESIZE_DIRS = ['n', 's', 'e', 'w', 'nw', 'ne', 'sw', 'se'] as const;
 
+/** 开发预览 compose-video 场景：页面内可识别的演示视频（仅 dev iframe）。 */
+const DEV_PREVIEW_COMPOSE_VIDEO_SRC =
+  'https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.webm';
+
+function appendComposeVideoDevDemo(parent: HTMLElement): void {
+  const demoVideo = document.createElement('video');
+  demoVideo.width = 320;
+  demoVideo.height = 180;
+  demoVideo.muted = true;
+  demoVideo.controls = true;
+  demoVideo.playsInline = true;
+  demoVideo.setAttribute('aria-label', '开发预览演示视频');
+  demoVideo.title = '演示视频';
+  demoVideo.poster = '/icons/icon-128.png';
+  demoVideo.src = DEV_PREVIEW_COMPOSE_VIDEO_SRC;
+  demoVideo.className =
+    'rounded-xl border border-zinc-300/80 shadow-sm dark:border-zinc-700 object-contain bg-black';
+  parent.appendChild(demoVideo);
+}
+
+function initComposeVideoPreviewMode(state: PanelState): void {
+  setComposeCollectMode('video');
+  setComposeSelectedVideoIndex(0);
+  applyDefaultComposeVideoSegment(0, { force: true });
+  previewRenderPanel(state);
+}
+
 function appendResizeHandles(p: HTMLElement): void {
   for (const d of RESIZE_DIRS) {
     const h = document.createElement('div');
@@ -45,14 +90,35 @@ function appendResizeHandles(p: HTMLElement): void {
   }
 }
 
+let previewLastStatus: PanelState['status'] | null = null;
+
+function applyPreviewPanelGeometry(
+  state: PanelState,
+  prevStatus: PanelState['status'] | null,
+): void {
+  const root = panel;
+  if (!root) return;
+  if (prevStatus === null) {
+    setPanelGeometry(ratioCenteredGeometry());
+  }
+  maybeAdjustGeometryForPanelStatus(state.status, prevStatus, {
+    refCount: panelReferenceUrls(state).length,
+    videoMode: getComposeCollectMode() === 'video' && listViewportVideos().length > 0,
+  });
+  applyGeometryToPanel(root, ensureGeometry());
+}
+
 function previewRenderPanel(state: PanelState): void {
+  const prevStatus = previewLastStatus;
   setCurrentState(state);
+  previewLastStatus = state.status;
   const root = panel;
   if (!root) return;
   const surface = root.querySelector<HTMLElement>('[data-role="panel-surface"]');
   if (!surface) return;
   ensurePanelReactRoot(surface);
-  renderPanelReact(state, null);
+  renderPanelReact(state, prevStatus);
+  applyPreviewPanelGeometry(state, prevStatus);
 }
 
 /** 预览不关 DOM，仅停定时器，避免 content `closePanel` 拆掉 iframe 内的面板节点。 */
@@ -109,10 +175,23 @@ function PanelPeek({ panelState }: { panelState: PanelState }) {
     mount.style.padding = '2rem';
     mount.style.boxSizing = 'border-box';
 
+    const isComposeVideoScene = getDevPreviewScene() === 'compose-video';
+
+    const layout = document.createElement('div');
+    const layoutFlex = isComposeVideoScene
+      ? 'flex flex-row items-start justify-center gap-6'
+      : 'flex flex-col items-center gap-6';
+    layout.className = `min-h-[min(600px,calc(100vh-96px))] ${layoutFlex} bg-gradient-to-br from-indigo-200/40 via-zinc-100 to-violet-200/35 dark:from-indigo-900/35 dark:via-zinc-900 dark:to-violet-900/35`;
+    layout.style.colorScheme = 'light dark';
+
+    if (isComposeVideoScene) {
+      appendComposeVideoDevDemo(layout);
+    }
+
     const panelHost = document.createElement('div');
-    panelHost.className =
-      'min-h-[min(600px,calc(100vh-96px))] flex items-start justify-center bg-gradient-to-br from-indigo-200/40 via-zinc-100 to-violet-200/35 dark:from-indigo-900/35 dark:via-zinc-900 dark:to-violet-900/35';
-    panelHost.style.colorScheme = 'light dark';
+    panelHost.className = isComposeVideoScene
+      ? 'flex shrink-0 items-start justify-center'
+      : 'flex w-full items-start justify-center';
 
     const shadow = panelHost.attachShadow({ mode: 'open' });
 
@@ -122,7 +201,6 @@ function PanelPeek({ panelState }: { panelState: PanelState }) {
 
     const panelRoot = document.createElement('div');
     panelRoot.className = 'panel mounted panel--dev-preview';
-    panelRoot.style.width = 'min(720px, calc(100vw - 96px))';
     panelRoot.style.margin = '48px auto 0';
 
     const surface = document.createElement('div');
@@ -131,13 +209,20 @@ function PanelPeek({ panelState }: { panelState: PanelState }) {
     appendResizeHandles(panelRoot);
 
     shadow.appendChild(panelRoot);
-    mount.appendChild(panelHost);
+    layout.appendChild(panelHost);
+    mount.appendChild(layout);
 
     setPanel(panelRoot);
-    previewRenderPanel(panelState);
+    previewLastStatus = null;
+    if (isComposeVideoScene) {
+      initComposeVideoPreviewMode(panelState);
+    } else {
+      previewRenderPanel(panelState);
+    }
     bindEvents(panelRoot);
 
     return () => {
+      previewLastStatus = null;
       cancelPendingDirtyChromeDeferred();
       stopLoadingTicker();
       stopLoadingStallWatchdog();

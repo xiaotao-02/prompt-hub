@@ -7,11 +7,17 @@ import { resolveExtractProvider } from '../providerRoles';
 import { resolveProviderApiKey } from '../api/resolveProviderApiKey';
 import { fetchImageAsBase64 } from '../image';
 import { normalizeReferenceList } from '../referenceImages';
-import { getStrategy, resolveCustomStrategy, type PromptStrategy } from '../strategies';
+import { getReplaceInstructionForStrategy, resolveStrategyForExtract } from '../strategyOverrides';
+import type { PromptStrategy } from '../strategies';
 import { callOpenAICompatible } from './providers/openai';
 import { callAnthropic } from './providers/anthropic';
 import { callGemini } from './providers/gemini';
 import { validateExtractModel } from './providerValidation';
+import {
+  extractFetchAbortSignal,
+  EXTRACT_FETCH_TIMEOUT_MESSAGE,
+  isExtractFetchTimeoutError,
+} from './http';
 import { safeProgress, type ExtractParams, type ExtractResult } from './types';
 
 const MULTI_IMAGE_INSTRUCTION_NOTE =
@@ -62,7 +68,7 @@ function appendVideoSegmentInstruction(
     `\n\n【视频分镜任务 · 格式例外】以下多张参考图为同一 HTML5 视频在 **${a}s 至 ${b}s** 区间内按播放时间递增采样的静止帧；请理解为同一连贯动作片段在不同瞬间的画面。上文若要求「单段」「不分行」「不分点」「不要 Markdown」，在本任务中以本条为准：你必须输出 **${n} 条分镜**，与本消息中参考图的先后顺序严格一一对应（第 k 张图对应分镜序号 k）；每条单独成行或单独成段，禁止合并成一段不分条的笼统描写，禁止在末尾追加总结段。${anchors}` +
     `\n每条建议使用格式：分镜01（约Xs）：……；分镜02（约Ys）：……（两位序号；括号内时间优先采用上文锚点；勿臆造严重偏离区间的时刻）。` +
     `\n每条分镜必须覆盖该帧可见的：景别/镜头与构图、主体动作状态或姿态变化、场景与光线、具体色彩/材质/风格锚点，并用一小句交代它与前后帧的连续性（如视线、位移、手势、镜头推进、构图变化或动作承接）。看不出连续性时只写当前帧事实，不要硬编。` +
-    `\n每条分镜内仍遵循上文约定的语种与条目样式（如中文段落 / 英文段落 / SD 逗号标签 / Midjourney 单行）；SD/MJ 档每条仍可写成单行标签或单行英文描述，但也必须逐条对应帧。` +
+    `\n每条分镜内仍遵循上文约定的语种与条目样式（如中文段落 / 英文段落 / 日语段落 / JSON 对象）；也必须逐条对应帧。` +
     `\n若上文【本次任务限定】要求仅抽取材质或画风，则每一条分镜仅在对应帧画面上遵守该限定，勿写成剧情旁白。` +
     `\n严禁编造任一分镜画面上不存在的内容；看不清的细节宁可不写，勿脑补镜头外动作、台词、情节或转场。`
   );
@@ -88,15 +94,10 @@ function effectiveOutputStyleForExtract(
 function buildInstruction(settings: AppSettings, strategy: PromptStrategy): string {
   const styleKey = effectiveOutputStyleForExtract(settings, strategy);
   const base = strategy.stylePrompts[styleKey] ?? strategy.stylePrompts['natural-zh'];
-  const custom = settings.customPromptTemplate.trim();
-  if (!custom) return base;
-  // 拼接位置由策略决定：
-  //   - 'prepend'（高保真档默认）：custom 放在 base 之前，把用户的话当一等公民
-  //   - 'append' （经典档兼容写法）：base 在前，custom 以"额外要求："形式追加在末尾
-  if (strategy.customPosition === 'prepend') {
-    return `${custom}\n\n${base}`;
-  }
-  return `${base}\n\n额外要求：${custom}`;
+  if (strategy.id === 'native') return base;
+  const replace = getReplaceInstructionForStrategy(settings, strategy);
+  if (replace) return replace;
+  return base;
 }
 
 export async function extractPrompt(params: ExtractParams): Promise<ExtractResult> {
@@ -107,6 +108,7 @@ export async function extractPrompt(params: ExtractParams): Promise<ExtractResul
     onProgress,
     extractFocus,
     videoSegment,
+    signal: explicitSignal,
   } = params;
   const imageUrls = normalizeReferenceList(rawUrls);
   if (imageUrls.length === 0) {
@@ -115,18 +117,14 @@ export async function extractPrompt(params: ExtractParams): Promise<ExtractResul
   const providerId = resolveExtractProvider(settings);
   const cfg = { ...settings.providers[providerId] };
   cfg.apiKey = await resolveProviderApiKey(providerId, cfg);
+  if (!cfg.model?.trim()) {
+    throw new Error('请先在「设置 → 内置服务 / 自定义 API」中配置反推模型后再使用插件');
+  }
   const modelValidation = validateExtractModel(providerId, cfg.model, imageUrls.length > 0);
   if (!modelValidation.ok) {
     throw new Error(modelValidation.message);
   }
-  const strategy =
-    settings.promptStrategy === 'custom' && settings.customComponents
-      ? resolveCustomStrategy(settings.customComponents, {
-          instruction: settings.customInstruction || undefined,
-          temperature: settings.customTemperature,
-          maxTokens: settings.customMaxTokens,
-        })
-      : getStrategy(settings.promptStrategy);
+  const strategy = resolveStrategyForExtract(settings);
   let instruction = buildInstruction(settings, strategy);
   if (imageUrls.length > 1 && !videoSegment) {
     instruction += MULTI_IMAGE_INSTRUCTION_NOTE;
@@ -144,36 +142,45 @@ export async function extractPrompt(params: ExtractParams): Promise<ExtractResul
 
   safeProgress(onProgress, { stage: 'calling' });
 
+  const signal = explicitSignal ?? extractFetchAbortSignal();
+
   let prompt: string;
-  switch (providerId) {
-    case 'anthropic':
-      prompt = await callAnthropic(cfg, imgs, instruction, strategy, onProgress);
-      break;
-    case 'gemini':
-      prompt = await callGemini(cfg, imgs, instruction, strategy, onProgress);
-      break;
-    case 'openai':
-    case 'zhipu':
-    case 'qwen':
-    case 'siliconflow':
-    case 'deepseek':
-    case 'moonshot':
-    case 'doubao':
-    case 'stepfun':
-    case 'minimax':
-    case 'yi':
-    case 'baidu':
-    case 'openrouter':
-    case 'xai':
-    case 'mistral':
-    case 'groq':
-    case 'together':
-    case 'fireworks':
-    case 'shukelongda':
-    case 'custom':
-    default:
-      prompt = await callOpenAICompatible(cfg, imgs, instruction, strategy, onProgress);
-      break;
+  try {
+    switch (providerId) {
+      case 'anthropic':
+        prompt = await callAnthropic(cfg, imgs, instruction, strategy, onProgress, signal);
+        break;
+      case 'gemini':
+        prompt = await callGemini(cfg, imgs, instruction, strategy, onProgress, signal);
+        break;
+      case 'openai':
+      case 'zhipu':
+      case 'qwen':
+      case 'siliconflow':
+      case 'deepseek':
+      case 'moonshot':
+      case 'doubao':
+      case 'stepfun':
+      case 'minimax':
+      case 'yi':
+      case 'baidu':
+      case 'openrouter':
+      case 'xai':
+      case 'mistral':
+      case 'groq':
+      case 'together':
+      case 'fireworks':
+      case 'shukelongda':
+      case 'custom':
+      default:
+        prompt = await callOpenAICompatible(cfg, imgs, instruction, strategy, onProgress, signal);
+        break;
+    }
+  } catch (err) {
+    if (isExtractFetchTimeoutError(err)) {
+      throw new Error(EXTRACT_FETCH_TIMEOUT_MESSAGE);
+    }
+    throw err;
   }
 
   return {

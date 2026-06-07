@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
+  defaultVideoSegmentRange,
+  formatVideoSegmentInputSec,
   inferVideoDisplayTitle,
+  resolveComposeVideoPreviewSource,
   selectVideoFrameCandidates,
   uniformSampleTimes,
 } from './videoSegmentSample';
@@ -20,7 +23,9 @@ function mockVideo(
     ariaLabel?: string;
     src?: string;
     currentSrc?: string;
+    poster?: string;
     figcaption?: string;
+    duration?: number;
     parentLabels?: Array<{ ariaLabel?: string; title?: string }>;
   } = {},
 ): HTMLVideoElement {
@@ -56,6 +61,7 @@ function mockVideo(
     title: attrs.title ?? '',
     getAttribute(name: string) {
       if (name === 'aria-label') return attrs.ariaLabel ?? null;
+      if (name === 'poster') return attrs.poster ?? null;
       return null;
     },
     closest(selector: string) {
@@ -65,6 +71,7 @@ function mockVideo(
     parentElement: parent,
     currentSrc: attrs.currentSrc ?? '',
     src: attrs.src ?? '',
+    duration: attrs.duration ?? Number.NaN,
     ownerDocument: { baseURI: 'https://example.com/' },
   } as unknown as HTMLVideoElement;
 }
@@ -127,6 +134,57 @@ describe('video segment sampling helpers', () => {
     );
 
     expect(selected.map((f) => f.timeSec)).toEqual([0, 3]);
+  });
+});
+
+describe('defaultVideoSegmentRange', () => {
+  it('uses 0 through finite duration when metadata is available', () => {
+    expect(defaultVideoSegmentRange(mockVideo({ duration: 42.5 }))).toEqual({
+      startSec: 0,
+      endSec: 42.5,
+    });
+  });
+
+  it('falls back to a safe span when duration is missing or invalid', () => {
+    expect(defaultVideoSegmentRange(mockVideo())).toEqual({ startSec: 0, endSec: 10 });
+    expect(defaultVideoSegmentRange(mockVideo({ duration: 0 }))).toEqual({
+      startSec: 0,
+      endSec: 10,
+    });
+  });
+});
+
+describe('formatVideoSegmentInputSec', () => {
+  it('formats seconds without trailing unit and trims trailing zeros', () => {
+    expect(formatVideoSegmentInputSec(0)).toBe('0');
+    expect(formatVideoSegmentInputSec(1.5)).toBe('1.5');
+    expect(formatVideoSegmentInputSec(599.994)).toBe('599.99');
+  });
+
+  it('returns empty string for non-finite values', () => {
+    expect(formatVideoSegmentInputSec(Number.NaN)).toBe('');
+  });
+});
+
+describe('resolveComposeVideoPreviewSource', () => {
+  it('returns src, poster and title when video has a playable address', () => {
+    expect(
+      resolveComposeVideoPreviewSource(
+        mockVideo({
+          currentSrc: 'https://cdn.example.com/clips/demo.mp4',
+          poster: '/posters/demo.jpg',
+        }),
+        0,
+      ),
+    ).toEqual({
+      src: 'https://cdn.example.com/clips/demo.mp4',
+      poster: 'https://example.com/posters/demo.jpg',
+      title: 'demo',
+    });
+  });
+
+  it('returns null when src is empty', () => {
+    expect(resolveComposeVideoPreviewSource(mockVideo(), 2)).toBeNull();
   });
 });
 

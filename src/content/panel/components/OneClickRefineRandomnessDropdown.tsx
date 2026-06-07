@@ -3,16 +3,12 @@ import { safeSendMessage } from '@/content/extensionBridge';
 import {
   normalizeOneClickRefineRandomness,
   ONE_CLICK_REFINE_RANDOMNESS_LABELS,
+  ONE_CLICK_REFINE_RANDOMNESS_LEVELS,
 } from '@/lib/oneClickRefine';
 import type { OneClickRefineRandomness, RuntimeMessage } from '@/lib/types';
 import { commitPanelEvent } from '../dispatchPanel';
 import { currentState, panelHasActiveRefine } from '../state';
-
-const RANDOMNESS_KEYS = [
-  'subtle',
-  'moderate',
-  'bold',
-] as const satisfies readonly OneClickRefineRandomness[];
+import { PanelSelectDropdown } from './PanelSelectDropdown';
 
 export type OneClickRefineRandomnessDropdownProps = {
   level: OneClickRefineRandomness;
@@ -44,46 +40,32 @@ export function OneClickRefineRandomnessDropdown({
     [disabled, rr],
   );
 
-  const handleTriggerClick = (e: MouseEvent<HTMLButtonElement>) => {
+  const handleItemClick = (e: MouseEvent<HTMLLIElement>, id: OneClickRefineRandomness) => {
     e.stopPropagation();
-    if (disabled) return;
-    setOpen((v) => !v);
+    handleSelect(id);
   };
 
   return (
-    <div
-      className={`strategy-dropdown one-click-refine-randomness-dropdown${disabled ? ' is-disabled' : ''}${open ? ' open' : ''}`}
-      data-role="one-click-refine-randomness-dropdown"
+    <PanelSelectDropdown
+      dataRole="one-click-refine-randomness-dropdown"
+      wrapperClassName="one-click-refine-randomness-dropdown"
+      open={open}
+      onOpenChange={setOpen}
+      disabled={disabled}
       aria-label="随机风格强度"
       title="随机风格强度"
+      triggerLabel={ONE_CLICK_REFINE_RANDOMNESS_LABELS[rr]}
     >
-      <button className="sd-trigger" type="button" disabled={disabled} onClick={handleTriggerClick}>
-        <span className="sd-label">{ONE_CLICK_REFINE_RANDOMNESS_LABELS[rr]}</span>
-        <svg className="sd-arrow" width="10" height="6" viewBox="0 0 10 6" fill="none">
-          <path
-            d="M1 1l4 4 4-4"
-            stroke="currentColor"
-            strokeWidth="1.5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-        </svg>
-      </button>
-      <ul className="sd-menu">
-        {RANDOMNESS_KEYS.map((id) => (
-          <li
-            key={id}
-            className={`sd-item${id === rr ? ' active' : ''}`}
-            data-randomness={id}
-            onClick={(e) => {
-              e.stopPropagation();
-              handleSelect(id);
-            }}
-          >
-            {ONE_CLICK_REFINE_RANDOMNESS_LABELS[id]}
-          </li>
-        ))}
-      </ul>
-    </div>
+      {ONE_CLICK_REFINE_RANDOMNESS_LEVELS.map((id) => (
+        <li
+          key={id}
+          className={`sd-item${id === rr ? ' active' : ''}`}
+          data-randomness={id}
+          onClick={(e) => handleItemClick(e, id)}
+        >
+          {ONE_CLICK_REFINE_RANDOMNESS_LABELS[id]}
+        </li>
+      ))}
+    </PanelSelectDropdown>
   );
 }

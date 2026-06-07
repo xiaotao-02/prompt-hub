@@ -96,11 +96,18 @@ export const shellCss = `
 .panel.library-closing {
   animation: panelOut .18s cubic-bezier(.4,0,.2,1) forwards !important;
 }
-/* 侧栏展开/收起时临时加上，让面板宽度和位置与侧栏的 .22s 过渡同步动画。
+/* 内容/侧栏驱动的几何变化：宽高与位置平滑过渡（由 geometry.ts 临时添加）。
    .dragging / .resizing 的 transition:none!important 会覆盖，安全。 */
-.panel.sidebar-transition {
+.panel.geometry-transition {
   transition: width var(--pe-collapse-duration) var(--pe-collapse-ease),
-              left var(--pe-collapse-duration) var(--pe-collapse-ease);
+              height var(--pe-collapse-duration) var(--pe-collapse-ease),
+              left var(--pe-collapse-duration) var(--pe-collapse-ease),
+              top var(--pe-collapse-duration) var(--pe-collapse-ease);
+}
+@media (prefers-reduced-motion: reduce) {
+  .panel.geometry-transition {
+    transition: none !important;
+  }
 }
 .panel.dragging,
 .panel.resizing {

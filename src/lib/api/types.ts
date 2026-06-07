@@ -62,6 +62,8 @@ export interface ExtractParams {
   extractFocus?: ExtractFocus;
   /** 与运行时 EXTRACT_PROMPT.payload.videoSegment 一致（时间段反推 / 分镜锚点） */
   videoSegment?: VideoSegmentMeta;
+  /** 可选：限制 API fetch 时长（background 注入 extract 超时 signal） */
+  signal?: AbortSignal;
 }
 
 export interface ExtractResult {
@@ -137,4 +139,75 @@ export function emitBufferedRefineProgress(
     streamMode: 'buffered',
     ...(partial !== undefined ? { partial } : {}),
   });
+}
+
+/** 过短文本不做打字机动画，直接一次性揭示。 */
+const REVEAL_SHORT_TEXT_MAX_LEN = 12;
+const REVEAL_MAX_FRAMES = 30;
+const REVEAL_MAX_MS = 1500;
+const REVEAL_MIN_FRAME_MS = 40;
+const REVEAL_MAX_FRAME_MS = 60;
+
+function sleepForReveal(ms: number, signal?: AbortSignal): Promise<void> {
+  if (signal?.aborted) return Promise.resolve();
+  return new Promise((resolve) => {
+    const timer = setTimeout(resolve, ms);
+    const onAbort = () => {
+      clearTimeout(timer);
+      resolve();
+    };
+    signal?.addEventListener('abort', onAbort, { once: true });
+  });
+}
+
+/**
+ * 将已拿到的完整文本按前缀逐帧回调，模拟流式揭示（用于 buffered 降级）。
+ * 帧间隔与总帧数受上限约束，避免 tabs.sendMessage 过密。
+ */
+export async function simulateStreamReveal(
+  final: string,
+  emitPartial: (partial: string) => void,
+  signal?: AbortSignal,
+): Promise<void> {
+  if (!final.length || final.length <= REVEAL_SHORT_TEXT_MAX_LEN) {
+    emitPartial(final);
+    return;
+  }
+
+  const frameCount = Math.min(REVEAL_MAX_FRAMES, Math.max(2, Math.ceil(final.length / 8)));
+  const frameMs = Math.min(
+    REVEAL_MAX_FRAME_MS,
+    Math.max(REVEAL_MIN_FRAME_MS, Math.floor(REVEAL_MAX_MS / frameCount)),
+  );
+
+  for (let i = 1; i <= frameCount; i++) {
+    if (signal?.aborted) return;
+    const isLast = i === frameCount;
+    const end = isLast ? final.length : Math.max(1, Math.floor((i / frameCount) * final.length));
+    emitPartial(final.slice(0, end));
+    if (!isLast) await sleepForReveal(frameMs, signal);
+  }
+}
+
+/** buffered 降级：在已 emit 首帧提示后，用打字机效果逐字揭示完整结果。 */
+export async function revealBufferedExtractProgress(
+  onProgress: ExtractProgressFn | undefined,
+  final: string,
+  signal?: AbortSignal,
+): Promise<void> {
+  if (!onProgress) return;
+  await simulateStreamReveal(
+    final,
+    (partial) => emitBufferedExtractProgress(onProgress, partial),
+    signal,
+  );
+}
+
+/** refine 版 buffered 模拟揭示。 */
+export async function revealBufferedRefineProgress(
+  onProgress: RefineProgressFn | undefined,
+  final: string,
+): Promise<void> {
+  if (!onProgress) return;
+  await simulateStreamReveal(final, (partial) => emitBufferedRefineProgress(onProgress, partial));
 }

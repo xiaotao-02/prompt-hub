@@ -2,7 +2,7 @@
  * 反推流式消息 → panelReducer → 渲染。
  * 从 panel/index 拆出，集中 reducer 驱动的 extract 状态迁移。
  */
-import type { ExtractStage, OneClickRefineRandomness, StrategyId } from '@/lib/types';
+import type { ExtractStage, OneClickRefineRandomness, OutputStyle, StrategyId } from '@/lib/types';
 import { extractStreamSentinelForJob } from '@/lib/streamVersionSentinels';
 import { normalizeReferenceList } from '@/lib/referenceImages';
 import {
@@ -26,6 +26,7 @@ export function renderPanelForExtractPending(payload: {
   imageUrl: string;
   imageUrls?: string[];
   strategy?: StrategyId;
+  outputStyle?: OutputStyle;
   oneClickRefineRandomness?: OneClickRefineRandomness;
 }): void {
   const urls = normalizeReferenceList(
@@ -47,6 +48,7 @@ export function renderPanelForExtractPending(payload: {
       imageUrls: urls,
       extractJobs: ej,
       strategy: payload.strategy ?? prev.strategy,
+      outputStyle: payload.outputStyle ?? prev.outputStyle,
       oneClickRefineRandomness: payload.oneClickRefineRandomness ?? prev.oneClickRefineRandomness,
       prefetchStorageId: undefined,
     });
@@ -66,6 +68,7 @@ export function renderPanelForExtractPending(payload: {
       stage: 'calling',
       startedAt: Date.now(),
       strategy: payload.strategy ?? prev.strategy,
+      outputStyle: payload.outputStyle ?? prev.outputStyle,
       oneClickRefineRandomness: payload.oneClickRefineRandomness ?? prev.oneClickRefineRandomness,
       prompt: undefined,
       error: undefined,
@@ -91,6 +94,7 @@ export function renderPanelForExtractPending(payload: {
     stage: 'calling',
     startedAt: Date.now(),
     strategy: payload.strategy,
+    outputStyle: payload.outputStyle,
     oneClickRefineRandomness: payload.oneClickRefineRandomness,
     prefetchStorageId: undefined,
   });
@@ -103,6 +107,7 @@ export function applyExtractStreamProgress(
     partial?: string;
     streamMode?: import('@/lib/types').StreamDeliveryMode;
     strategy?: StrategyId;
+    outputStyle?: OutputStyle;
     provider?: string;
     model?: string;
     oneClickRefineRandomness?: OneClickRefineRandomness;

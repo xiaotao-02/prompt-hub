@@ -282,7 +282,7 @@ function arrayBufferToBase64(buffer: ArrayBuffer): string {
  *
  * 当用户右键的是视频帧 / canvas / 扁平化后的动图时，imageUrl 进来是
  * 一个上百 KB ~ 数 MB 的 data:image/... base64 字符串。如果原样塞进
- * chrome.storage.local（5MB 配额，HISTORY_LIMIT=300），几条就能撑爆配额。
+ * IndexedDB 历史库（HISTORY_LIMIT=10 万条），大体积 data URL 会显著占用磁盘空间。
  *
  * 策略：
  *   - http(s) / blob: URL 保持原样（远程地址只占几百字节）

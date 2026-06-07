@@ -4,6 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Prompt Hub · 开发 UI 实时预览</title>
+    <link rel="stylesheet" href="/src/dev/preview/popupPreviewFrame.css" />
     <style>
       :root {
         font-family: system-ui, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
@@ -27,17 +28,6 @@
         box-sizing: border-box;
         display: flex;
         flex-direction: column;
-      }
-      h1 {
-        font-size: 1.2rem;
-        margin: 0 0 0.35rem;
-      }
-      .hint {
-        margin: 0 0 0.5rem;
-        font-size: 0.88rem;
-        line-height: 1.45;
-        opacity: 0.78;
-        max-width: 92ch;
       }
       .tabs {
         display: flex;
@@ -88,7 +78,7 @@
       .preview-stack {
         position: relative;
         flex: 1 1 auto;
-        min-height: max(520px, calc(100vh - 13.5rem));
+        min-height: max(520px, calc(100vh - 5.5rem));
         width: 100%;
       }
       .tabpanel {
@@ -196,24 +186,6 @@
     </style>
   </head>
   <body>
-    <h1>Prompt Hub · 开发 UI 实时预览</h1>
-    <p class="hint">
-      推荐根目录 <code>npm run dev:previews</code> 一键启动扩展 UI（<code>5173</code>）、官网（<code>4321</code>）、平台
-      API（<code>8787</code>）并写入本地联调 env。仅扩展 UI 时可 <code>npm run dev</code>。预览为内存
-      <code>chrome.storage</code> 与占位 <code>runtime.sendMessage</code>，与
-      <code>chrome-extension://</code> 不完全一致。顶栏或
-      <code>#popup</code
-      >/<code>#options</code>/<code>#panel</code>/<code>#contextmenu</code>/<code>#website</code>，快捷键
-      <kbd>1</kbd
-      >/<kbd>2</kbd>/<kbd>3</kbd>/<kbd>4</kbd>/<kbd>5</kbd>（本页焦点）。官网标签内嵌
-      <code>http://localhost:4321</code>（需已由 <code>dev:previews</code> 或 <code>website/npm run dev</code>
-      启动）。各标签下有<strong>场景</strong>下拉框：独立
-      <code>?scene=</code>（空库用独立 IndexedDB，与有数据预览互不影响）。同源种子见
-      <code>src/dev/preview/seedPreviewLibrary.ts</code>（<code>preview-demo-*</code>）。Panel
-      成功态默认 <code>#focus=preview-demo-10v</code>；另开单页可加
-      <code>#focus=preview-demo-1</code>。场景选项见 <code>src/dev/preview/previewScene.ts</code>。
-    </p>
-
     <div class="tabs" role="tablist" aria-label="预览界面切换">
       <button
         type="button"
@@ -281,7 +253,9 @@
         data-view="popup"
       >
         <div class="scene-tools" data-scene-bar="popup"></div>
-        <iframe title="Popup 预览"></iframe>
+        <div class="popup-preview-host">
+          <iframe class="popup-preview-iframe" title="Popup 预览"></iframe>
+        </div>
       </div>
       <div
         class="tabpanel"
@@ -325,13 +299,18 @@
         data-view="website"
       >
         <div class="scene-tools" data-website-toolbar>
-          <span>官网 <code>localhost:4321</code>（<code>npm run dev:previews</code> 自动启动）</span>
+          <span
+            >官网 <code>localhost:4321</code>（<code>npm run dev:previews</code> 自动启动）</span
+          >
           <button type="button" data-website-path="/" aria-pressed="true">首页</button>
           <button type="button" data-website-path="/account">账户</button>
           <button type="button" data-website-path="/pricing">定价</button>
           <button type="button" data-website-path="/docs">文档</button>
+          <button type="button" data-website-path="/admin">后台</button>
           <button type="button" data-website-reload>刷新</button>
-          <a href="http://localhost:4321/" target="_blank" rel="noreferrer" data-website-open>新标签打开</a>
+          <a href="http://localhost:4321/" target="_blank" rel="noreferrer" data-website-open
+            >新标签打开</a
+          >
         </div>
         <iframe title="插件官网预览"></iframe>
       </div>
@@ -340,14 +319,17 @@
     <script>
       (function () {
         var WEBSITE_ORIGIN = 'http://localhost:4321';
-        var WEBSITE_PATHS = ['/', '/account', '/pricing', '/docs'];
+        var WEBSITE_PATHS = ['/', '/account', '/pricing', '/docs', '/admin'];
         var websitePath = '/';
         var VIEWS = ['popup', 'options', 'panel', 'contextmenu', 'website'];
+        var IFRAME_VIEWS = ['popup', 'options', 'panel', 'contextmenu'];
         var SCENE_STORAGE_KEY = 'pe_dev_ui_preview_scenes_v1';
         var SCENE_SPECS = {
           popup: [
-            { id: 'default', label: '有数据（种子库）' },
-            { id: 'empty', label: '空列表' },
+            { id: 'default', label: '有历史 · 未配置' },
+            { id: 'configured', label: '有历史 · 已配置 Key' },
+            { id: 'versions', label: '展开 10 版本' },
+            { id: 'empty', label: '空列表 · 首配卡片' },
           ],
           options: [
             { id: 'default', label: '有数据（种子库）' },
@@ -360,6 +342,7 @@
             { id: 'loading', label: '反推进行中（流式）' },
             { id: 'error', label: '反推失败' },
             { id: 'compose', label: '合成 · 待发图' },
+            { id: 'compose-video', label: '合成 · 视频预览' },
           ],
           contextmenu: [
             { id: 'image', label: '图片右键' },
@@ -420,6 +403,9 @@
           if (view === 'panel' && scene === 'default') {
             u += '#focus=preview-demo-10v';
           }
+          if (view === 'popup' && scene === 'versions') {
+            u += '#expand=preview-demo-10v';
+          }
           return u;
         }
 
@@ -432,11 +418,14 @@
           if (!iframe) return;
           var nextSrc = buildIframeSrc(view, opts);
           if (!opts.force && iframe.getAttribute('src') === nextSrc) return;
+          if (view === 'popup') {
+            iframe.style.height = '360px';
+          }
           iframe.src = nextSrc;
         }
 
         function wireSceneSelects() {
-          VIEWS.forEach(function (view) {
+          IFRAME_VIEWS.forEach(function (view) {
             var bar = document.querySelector('[data-scene-bar="' + view + '"]');
             if (!bar) return;
             bar.textContent = '';
@@ -464,11 +453,11 @@
         }
 
         loadScenesFromStorage();
-        VIEWS.forEach(function (v) {
+        IFRAME_VIEWS.forEach(function (v) {
           sceneByView[v] = normalizeSceneForView(v, sceneByView[v]);
         });
         wireSceneSelects();
-        VIEWS.forEach(function (v) {
+        IFRAME_VIEWS.forEach(function (v) {
           setIframeSrc(v);
         });
 
@@ -569,12 +558,27 @@
           syncWebsiteToolbar();
         }
 
-        /* 与 src/dev/preview/chromeShim.ts 中 DEV_PREVIEW_NAV 保持一致 */
+        /* 与 src/dev/preview/chromeShim.ts 中 DEV_PREVIEW_NAV / DEV_PREVIEW_POPUP_SIZE 保持一致 */
         var DEV_PREVIEW_NAV = 'DEV_PREVIEW_NAV';
+        var DEV_PREVIEW_POPUP_SIZE = 'DEV_PREVIEW_POPUP_SIZE';
+        var POPUP_PREVIEW_MAX_HEIGHT = 600;
+
         window.addEventListener('message', function (e) {
           if (e.origin !== window.location.origin) return;
           var d = e.data;
-          if (!d || d.type !== DEV_PREVIEW_NAV) return;
+          if (!d || typeof d.type !== 'string') return;
+
+          if (d.type === DEV_PREVIEW_POPUP_SIZE && typeof d.height === 'number') {
+            var popupPanel = document.querySelector('.tabpanel[data-view="popup"]');
+            var popupIframe = popupPanel && popupPanel.querySelector('iframe.popup-preview-iframe');
+            if (popupIframe) {
+              var h = Math.max(120, Math.min(Math.ceil(d.height) + 2, POPUP_PREVIEW_MAX_HEIGHT));
+              popupIframe.style.height = h + 'px';
+            }
+            return;
+          }
+
+          if (d.type !== DEV_PREVIEW_NAV) return;
           var view = d.view;
           if (VIEWS.indexOf(view) < 0) return;
           activate(view, { skipHash: false });

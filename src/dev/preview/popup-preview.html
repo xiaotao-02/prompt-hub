@@ -4,8 +4,10 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>DEV · Popup · Prompt Hub</title>
+    <link rel="stylesheet" href="./popupPreviewFrame.css" />
   </head>
-  <body class="min-w-[560px] w-[560px]">
+  <!-- body 类名由 popup-entry.tsx 注入 popupShell.POPUP_BODY_CLASS -->
+  <body>
     <div id="root"></div>
     <script type="module" src="./popup-entry.tsx"></script>
   </body>

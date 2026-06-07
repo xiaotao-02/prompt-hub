@@ -6,18 +6,18 @@ import {
   bumpLibraryRev,
   clearHistoryStore,
   deleteHistoryRecord,
-  exportAllHistoryPublic,
+  exportAllHistoryPublic as exportAllHistoryPublicDb,
   getByDedupeKey,
   getHistoryRecord,
-  historyCount,
+  historyCount as historyCountDb,
   HISTORY_STORE,
   LIBRARY_REV_KEY,
-  listHistoryGlobalDescPage,
-  listRecentHistory,
+  listHistoryGlobalDescPage as listHistoryGlobalDescPageDb,
+  listRecentHistory as listRecentHistoryDb,
   naturalDedupeKey,
   openHistoryDb,
   putHistoryRecord,
-  scanHistoryLibraryStats,
+  scanHistoryLibraryStats as scanHistoryLibraryStatsDb,
   toPublicHistory,
   toStoredRecord,
   trimOldestToMax,
@@ -44,14 +44,37 @@ const HISTORY_IDB_MIGRATED_KEY = 'history_idb_migrated_v1';
 /** 单库最大条数（超出则删除最旧记录）。 */
 export const HISTORY_LIMIT = 100_000;
 
-export {
-  LIBRARY_REV_KEY,
-  listHistoryGlobalDescPage,
-  listRecentHistory,
-  scanHistoryLibraryStats,
-  historyCount,
-  exportAllHistoryPublic,
-};
+export { LIBRARY_REV_KEY };
+
+export async function listHistoryGlobalDescPage(
+  limit: number,
+  cursorKey?: string,
+): Promise<{ items: HistoryItem[]; nextCursor: string | undefined }> {
+  await ensureLibraryReady();
+  return listHistoryGlobalDescPageDb(limit, cursorKey);
+}
+
+export async function listRecentHistory(limit: number): Promise<HistoryItem[]> {
+  await ensureLibraryReady();
+  return listRecentHistoryDb(limit);
+}
+
+export async function scanHistoryLibraryStats(): Promise<
+  import('./historyDb').HistoryLibraryStats
+> {
+  await ensureLibraryReady();
+  return scanHistoryLibraryStatsDb();
+}
+
+export async function historyCount(): Promise<number> {
+  await ensureLibraryReady();
+  return historyCountDb();
+}
+
+export async function exportAllHistoryPublic(): Promise<HistoryItem[]> {
+  await ensureLibraryReady();
+  return exportAllHistoryPublicDb();
+}
 
 /**
  * 存储层规范形态：`extracted` / `refined` 版本缺少 meta 时用条目顶层字段回填，
@@ -158,6 +181,11 @@ export function ensureLibraryReady(): Promise<void> {
   return libraryReady;
 }
 
+/** 单元测试重置迁移缓存 */
+export function resetLibraryReadyForTests(): void {
+  libraryReady = null;
+}
+
 async function migrateLegacyChromeStorageIfNeeded(): Promise<void> {
   const state = await chrome.storage.local.get([
     HISTORY_KEY,
@@ -168,7 +196,12 @@ async function migrateLegacyChromeStorageIfNeeded(): Promise<void> {
 
   const raw = state[HISTORY_KEY] as HistoryItem[] | undefined;
   if (!raw || !Array.isArray(raw)) {
-    await chrome.storage.local.set({ [HISTORY_IDB_MIGRATED_KEY]: Date.now() });
+    const count = await historyCountDb();
+    if (count > 0) {
+      await chrome.storage.local.set({ [HISTORY_IDB_MIGRATED_KEY]: Date.now() });
+    } else {
+      await chrome.storage.local.set({ [HISTORY_IDB_MIGRATED_KEY]: Date.now() });
+    }
     return;
   }
 
@@ -179,6 +212,10 @@ async function migrateLegacyChromeStorageIfNeeded(): Promise<void> {
   }
 
   await bulkPutHistoryItems(list);
+  const migratedCount = await historyCountDb();
+  if (migratedCount === 0 && list.length > 0) {
+    throw new Error('历史迁移失败：写入 IndexedDB 后条数为 0');
+  }
   await chrome.storage.local.remove(HISTORY_KEY);
   await chrome.storage.local.set({ [HISTORY_IDB_MIGRATED_KEY]: Date.now() });
   await finalizeHistoryMutation();
@@ -206,7 +243,7 @@ try {
  */
 export async function getHistory(): Promise<HistoryItem[]> {
   await ensureLibraryReady();
-  return exportAllHistoryPublic();
+  return exportAllHistoryPublicDb();
 }
 
 export async function writeHistory(list: HistoryItem[]): Promise<void> {

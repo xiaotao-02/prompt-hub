@@ -30,7 +30,7 @@ export default function SettingsNav({ panelId, onPanelChange }: Props) {
         </div>
       </div>
 
-      <aside className="hidden lg:flex w-56 shrink-0 flex-col border-r border-zinc-200 dark:border-zinc-800 bg-zinc-50/85 dark:bg-zinc-950/40 py-3 px-2 sticky top-[88px] self-start max-h-[calc(100dvh-88px)] overflow-y-auto">
+      <aside className="hidden lg:flex w-52 shrink-0 flex-col border-r border-zinc-200 dark:border-zinc-800 bg-zinc-50/85 dark:bg-zinc-950/40 py-3 px-2 sticky top-[88px] self-start max-h-[calc(100dvh-88px)] overflow-y-auto">
         <nav aria-label="设置分类" className="flex flex-col gap-0.5">
           {SETTINGS_PANEL_NAV.map(({ id, label }) => (
             <button

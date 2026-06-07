@@ -21,6 +21,8 @@ import { normalizeOpenAIBase } from '../url';
 import {
   emitBufferedExtractProgress,
   emitBufferedRefineProgress,
+  revealBufferedExtractProgress,
+  revealBufferedRefineProgress,
   safeProgress,
   safeRefineProgress,
   type ExtractProgressFn,
@@ -180,6 +182,7 @@ export async function callOpenAICompatible(
   instruction: string,
   strategy: PromptStrategy,
   onProgress?: ExtractProgressFn,
+  signal?: AbortSignal,
 ): Promise<string> {
   // 大部分兼容 OpenAI 的服务端都接受 url 形式的 image_url，
   // 但跨域 + 鉴权 + base64 更稳妥，这里统一转 base64。
@@ -209,6 +212,7 @@ export async function callOpenAICompatible(
       Accept: 'text/event-stream',
     },
     body: JSON.stringify(body),
+    ...(signal ? { signal } : {}),
   });
 
   if (!resp.ok) {
@@ -227,7 +231,7 @@ export async function callOpenAICompatible(
     const content = json?.choices?.[0]?.message?.content;
     const final = stripRedactedThinking(extractOpenAIContent(content));
     if (!final.trim()) throw new Error('返回内容为空，请检查模型是否支持视觉输入');
-    emitBufferedExtractProgress(onProgress, final);
+    await revealBufferedExtractProgress(onProgress, final, signal);
     return final;
   }
 
@@ -329,7 +333,7 @@ export async function callOpenAICompatibleText(
     const content = json?.choices?.[0]?.message?.content;
     const final = stripRedactedThinking(extractOpenAIContent(content));
     if (!final.trim()) throw new Error('返回内容为空');
-    emitBufferedRefineProgress(onProgress, final);
+    await revealBufferedRefineProgress(onProgress, final);
     return final;
   }
 

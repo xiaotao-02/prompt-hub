@@ -101,7 +101,6 @@ export function usePromptLibrary({
     setKeyword: filters.setKeyword,
     setFilterProvider: filters.setFilterProvider,
     setFilterStyle: filters.setFilterStyle,
-    setShowPinnedOnly: filters.setShowPinnedOnly,
     setSelectedNode: filters.setSelectedNode,
   });
 
@@ -124,6 +123,7 @@ export function usePromptLibrary({
     folders: data.folders,
     libraryStats: data.libraryStats,
     loading: data.loading,
+    loadError: data.loadError,
     loadingMore: data.loadingMore,
     hasMore: data.hasMore,
     loadMoreSentinelRef: data.loadMoreSentinelRef,
@@ -135,8 +135,6 @@ export function usePromptLibrary({
     setFilterStyle: filters.setFilterStyle,
     sortKey: filters.sortKey,
     setSortKey: filters.setSortKey,
-    showPinnedOnly: filters.showPinnedOnly,
-    setShowPinnedOnly: filters.setShowPinnedOnly,
     view: filters.view,
     setView: filters.setView,
     selectedNode: filters.selectedNode,

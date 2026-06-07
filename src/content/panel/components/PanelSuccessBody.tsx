@@ -2,9 +2,11 @@ import { parseExtractJobSentinel } from '@/lib/streamVersionSentinels';
 import type { PanelState } from '../state';
 import { panelExtractJobs, panelHasActiveRefine, panelRefineJobs } from '../state';
 import { successEditorDisplayedText } from '../editorText';
+import { ModelDropdown } from './ModelDropdown';
 import { PanelHeader } from './PanelHeader';
 import { ReferenceStrip } from './ReferenceStrip';
 import { PromptEditor } from './PromptEditor';
+import { VideoShotOutline } from './VideoShotOutline';
 import { MetaRow, type MetaRowJumpToOriginal } from './MetaRow';
 import { RefineBlock } from './RefineBlock';
 import { ActionsBar } from './ActionsBar';
@@ -19,8 +21,6 @@ export type PanelSuccessBodyProps = {
   onClose?: () => void;
   /** 参考图是否可删：网页浮窗 true，库浮窗 false */
   referenceRemovable?: boolean;
-  /** 隐藏「重新生成」：库浮窗 true */
-  hideRetry?: boolean;
   /** 库浮窗专属：MetaRow 末尾渲染「跳转原图」而非「提示词库」 */
   jumpToOriginal?: MetaRowJumpToOriginal;
 };
@@ -34,7 +34,6 @@ export function PanelSuccessBody({
   title,
   onClose,
   referenceRemovable,
-  hideRetry,
   jumpToOriginal,
 }: PanelSuccessBodyProps) {
   const versions = state.versions || [];
@@ -52,9 +51,6 @@ export function PanelSuccessBody({
   const successEditorBody = successEditorDisplayedText(state);
   const { openClassSuffix } = versionsRowChrome(state, versions);
 
-  const providerBadge = state.provider || '';
-  const modelSuffix = state.model ? ` · ${state.model}` : '';
-
   let editorPlaceholder = '可在此修改提示词…';
   if (refining) editorPlaceholder = '正在接收 AI 调整后的提示词…';
   else if (extractStreamingUi) editorPlaceholder = '正在接收模型回复…';
@@ -64,12 +60,7 @@ export function PanelSuccessBody({
       <PanelHeader
         dotClass="success"
         title={title}
-        badges={
-          <span className="badge">
-            {providerBadge}
-            {modelSuffix}
-          </span>
-        }
+        badges={<ModelDropdown state={state} />}
         onClose={onClose}
       />
       <div className={`panel-row${openClassSuffix}`}>
@@ -82,6 +73,7 @@ export function PanelSuccessBody({
           <div className="thumb ref-thumb-wrap">
             <ReferenceStrip state={state} removable={!!referenceRemovable} />
           </div>
+          <VideoShotOutline state={state} />
           <PromptEditor
             state={state}
             displayedText={successEditorBody}
@@ -100,7 +92,8 @@ export function PanelSuccessBody({
             dirty={dirty}
             oneClickRefineRandomness={state.oneClickRefineRandomness}
             oneClickRefineControlsDisabled={refining || editorContent.trim().length === 0}
-            hideRetry={hideRetry}
+            refining={refining}
+            runRefineDisabled={refining}
           />
         </div>
       </div>

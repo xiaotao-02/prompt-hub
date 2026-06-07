@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { Save, Settings as SettingsIcon, BookOpen, Check, ExternalLink } from 'lucide-react';
-import { Button, SegmentedControl, cx } from '@/components/ui';
-import { UI_ACTION } from '@/lib/uiCopy';
+import { useCallback, useEffect, useState } from 'react';
+import { Settings as SettingsIcon, BookOpen, ExternalLink } from 'lucide-react';
+import { SegmentedControl } from '@/components/ui';
 import SettingsView from './settings/SettingsView';
+import { SettingsAutosaveIndicator } from './settings/parts/SettingsAutosaveIndicator';
+import type { SettingsSaveState } from './settings/hooks/useSettingsPersistence';
 import PromptLibrary from './PromptLibrary';
 import type { LibraryDockIntent } from './PromptLibrary/types';
 
@@ -10,19 +11,6 @@ type Tab = 'settings' | 'library';
 
 const TAB_STORAGE_KEY = 'options_active_tab_v1';
 
-/**
- * 设置页根组件。顶部 header 是一个 Tab 容器，下面挂载两个独立面板：
- * - 设置：模型供应商 / 输出风格 / 自动更新
- * - 提示词库：每张图的提示词与版本历史管理后台
- *
- * 通过 sessionStorage 记忆上次停留的 Tab，方便用户在两个视图之间反复切换。
- */
-/**
- * 解析 options 页 URL 的 hash 参数。content script 浮动面板点击「在提示词库中编辑」
- * 时由 background 把目标 tab / focusId 拼到 hash 上传过来。
- * 形如 `#tab=library&focus=abc123&dock=refine`：`dock` 仅在同时存在 `focus` 时生效，
- * 避免仅有 `dock` 时用户第一次手动展开条目误开 AI 调整 / 历史侧栏。
- */
 function readHashParams(): {
   tab: Tab | null;
   focusId: string | null;
@@ -49,15 +37,9 @@ function normalizeLibraryDock(raw: string | null): LibraryDockIntent {
   return null;
 }
 
-/**
- * 扩展选项页 JS 载入时快照一次 URL hash。
- * React 18 StrictMode 开发环境会卸载再挂载；首次挂载里的 useEffect 会 replaceState 清掉 hash，
- * 第二次挂载若再读 window.location.hash 会得到空值，误判成「上次停留在设置」。冻结快照可避免该问题。
- */
 const OPTIONS_ENTRY_DEEPLINK = readHashParams();
 
 function resolveInitialOptionsTab(frozen: typeof OPTIONS_ENTRY_DEEPLINK): Tab {
-  // 只要有 focus（含仅有 focus、无 tab 的深链），必进提示词库，否则会渲染 Settings 而放弃定位。
   if (frozen.focusId) return 'library';
   if (frozen.tab) return frozen.tab;
   try {
@@ -73,7 +55,6 @@ const OPTIONS_HAD_DEEP_LINK = Boolean(
 );
 
 export default function OptionsApp() {
-  // hash 只在模块载入时读入 OPTIONS_ENTRY_DEEPLINK；消费完后清掉地址栏 hash，避免刷新又跳库。
   const [tab, setTab] = useState<Tab>(() => resolveInitialOptionsTab(OPTIONS_ENTRY_DEEPLINK));
   const [libraryFocusId, setLibraryFocusId] = useState<string | null>(
     () => OPTIONS_ENTRY_DEEPLINK.focusId,
@@ -82,11 +63,11 @@ export default function OptionsApp() {
     const dock = normalizeLibraryDock(OPTIONS_ENTRY_DEEPLINK.dockRaw);
     return OPTIONS_ENTRY_DEEPLINK.focusId && dock ? dock : null;
   });
+  const [saveState, setSaveState] = useState<SettingsSaveState>('idle');
+  const [saveError, setSaveError] = useState<string | undefined>();
 
   const clearLibraryDockIntent = useCallback(() => setLibraryDockIntent(null), []);
 
-  // 把 deep-link 消费掉：清掉 hash，并在 PromptLibrary 收到 focusId 后由它再调用
-  // onConsumeFocus 把这里的 focusId 也清掉，避免组件被反复触发自动展开。
   useEffect(() => {
     if (!OPTIONS_HAD_DEEP_LINK) return;
     try {
@@ -95,15 +76,11 @@ export default function OptionsApp() {
       /* ignore */
     }
   }, []);
-  /**
-   * 设置面板「未保存的修改」标志。
-   * - true：用户在 SettingsView 改过字段但还没落盘 → 顶部按钮显示「保存设置」
-   * - false：当前 UI 状态与 chrome.storage 里完全一致 → 显示「已保存」并禁用
-   *
-   * 这里没有用一次性的「保存成功 → N 秒后消失」提示，因为用户希望保存后能
-   * 持续看到「已保存」状态，直到自己再次编辑设置。
-   */
-  const [dirty, setDirty] = useState(false);
+
+  const handleSaveStateChange = useCallback((state: SettingsSaveState, errorMessage?: string) => {
+    setSaveState(state);
+    setSaveError(errorMessage);
+  }, []);
 
   useEffect(() => {
     try {
@@ -113,33 +90,19 @@ export default function OptionsApp() {
     }
   }, [tab]);
 
-  // 子面板通过 registerSaveHandler 把自己的保存逻辑注入这里，
-  // 我们就可以在固定的 header 上放一个保存按钮，避免每个面板都重复一套。
-  const saveHandlerRef = useRef<(() => Promise<void>) | null>(null);
-  const registerSaveHandler = useCallback((handler: () => Promise<void>) => {
-    saveHandlerRef.current = handler;
-  }, []);
-  // SettingsView 通过这个回调把 dirty 状态推给 header 按钮。
-  // 用 useCallback 保持引用稳定，避免子组件的 useEffect 反复触发。
-  const handleDirtyChange = useCallback((d: boolean) => {
-    setDirty(d);
-  }, []);
-
-  const onSave = async () => {
-    if (!saveHandlerRef.current) return;
-    await saveHandlerRef.current();
-    // dirty 会在 SettingsView 完成 persistAndMark 后通过 onDirtyChange 自动归零，
-    // 这里不需要也不应该再手动 setDirty(false)，否则可能与子组件的真实状态错位。
-  };
-
-  // 设置与提示词库共用同一个 1536px 外层宽度，保证切换 Tab 时 header 与 main 对齐一致。
-  // 用任意值而不是 max-w-screen-2xl，避免 Tailwind v4 中 screen-* 预设变动带来的兼容问题。
-  // header 与 main 共用同一个宽度，保证 Tab 居中、保存按钮右对齐时不会与下方内容错位。
   const containerWidth = 'max-w-[1536px]';
   const tabOptions = [
     { value: 'settings' as const, icon: <SettingsIcon className="w-3.5 h-3.5" />, label: '设置' },
     { value: 'library' as const, icon: <BookOpen className="w-3.5 h-3.5" />, label: '提示词库' },
   ];
+
+  const autosaveIndicator = (
+    <SettingsAutosaveIndicator
+      state={saveState}
+      errorMessage={saveError}
+      hidden={tab !== 'settings'}
+    />
+  );
 
   return (
     <div className="min-h-screen w-full flex flex-col items-center">
@@ -166,7 +129,6 @@ export default function OptionsApp() {
             </a>
           </div>
 
-          {/* Tab 切换：放在 grid 的中间列，天然居中于 header 容器 */}
           <SegmentedControl
             ariaLabel="选项页视图"
             className="justify-self-center"
@@ -175,29 +137,9 @@ export default function OptionsApp() {
             onChange={setTab}
           />
 
-          {/* 保存按钮始终占位，提示词库 tab 下用 invisible 隐藏，
-              避免按钮出现/消失让中间 Tab 栏位置左右跳动。
-              dirty=true → 紫色「保存设置」可点击；dirty=false → 绿色「已保存」禁用。 */}
-          <Button
-            variant={dirty ? 'primary' : 'quiet'}
-            size="sm"
-            className={cx(
-              'justify-self-end',
-              !dirty &&
-                'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-500/15 dark:text-emerald-300',
-              tab === 'settings' ? '' : 'invisible',
-            )}
-            onClick={onSave}
-            disabled={!dirty}
-            aria-hidden={tab !== 'settings'}
-            tabIndex={tab === 'settings' && dirty ? 0 : -1}
-          >
-            {dirty ? <Save className="w-4 h-4" /> : <Check className="w-4 h-4" />}
-            {dirty ? UI_ACTION.saveSettings : UI_ACTION.savedSettings}
-          </Button>
+          {autosaveIndicator}
         </div>
 
-        {/* 小屏：logo + 保存按钮一行，Tab 第二行 */}
         <div
           className={`sm:hidden ${containerWidth} mx-auto px-4 py-3 flex items-center justify-between gap-3`}
         >
@@ -219,25 +161,9 @@ export default function OptionsApp() {
               <ExternalLink className="w-3 h-3" aria-hidden />
             </a>
           </div>
-          <Button
-            variant={dirty ? 'primary' : 'quiet'}
-            size="sm"
-            className={cx(
-              !dirty &&
-                'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-500/15 dark:text-emerald-300',
-              tab === 'settings' ? '' : 'invisible',
-            )}
-            onClick={onSave}
-            disabled={!dirty}
-            aria-hidden={tab !== 'settings'}
-            tabIndex={tab === 'settings' && dirty ? 0 : -1}
-          >
-            {dirty ? <Save className="w-4 h-4" /> : <Check className="w-4 h-4" />}
-            {dirty ? UI_ACTION.saveSettings : UI_ACTION.savedSettings}
-          </Button>
+          {autosaveIndicator}
         </div>
 
-        {/* 小屏：把 Tab 单独放到第二行，并居中显示 */}
         <div className="sm:hidden border-t border-zinc-200 dark:border-zinc-800 px-4 py-2 flex justify-center">
           <SegmentedControl
             ariaLabel="选项页视图"
@@ -248,20 +174,21 @@ export default function OptionsApp() {
         </div>
       </header>
 
-      <main className={`w-full ${containerWidth} mx-auto px-8 py-8`}>
-        {tab === 'settings' ? (
-          <SettingsView
-            registerSaveHandler={registerSaveHandler}
-            onDirtyChange={handleDirtyChange}
-          />
-        ) : (
-          <PromptLibrary
-            focusId={libraryFocusId}
-            onConsumeFocus={() => setLibraryFocusId(null)}
-            dockIntent={libraryDockIntent}
-            onConsumeDockIntent={clearLibraryDockIntent}
-          />
-        )}
+      <main
+        className={`w-full mx-auto px-8 py-8 ${tab === 'settings' ? 'max-w-[920px]' : containerWidth}`}
+      >
+        <div key={tab} className="ui-fade-in">
+          {tab === 'settings' ? (
+            <SettingsView onSaveStateChange={handleSaveStateChange} />
+          ) : (
+            <PromptLibrary
+              focusId={libraryFocusId}
+              onConsumeFocus={() => setLibraryFocusId(null)}
+              dockIntent={libraryDockIntent}
+              onConsumeDockIntent={clearLibraryDockIntent}
+            />
+          )}
+        </div>
       </main>
     </div>
   );

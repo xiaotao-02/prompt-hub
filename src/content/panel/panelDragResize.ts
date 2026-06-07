@@ -6,7 +6,7 @@ import {
   updateGeometry,
   VIEWPORT_MARGIN,
 } from './geometry';
-import { panelGeometry } from './state';
+import { panelGeometry, type PanelGeometry } from './state';
 
 export function bindHeaderDrag(root: HTMLElement): void {
   root.addEventListener('mousedown', (e) => {
@@ -14,7 +14,8 @@ export function bindHeaderDrag(root: HTMLElement): void {
     const header = (e.target as HTMLElement).closest('.header');
     if (!header || !root.contains(header)) return;
     const target = e.target as HTMLElement | null;
-    if (target && target.closest('.icon-btn, button, a, input, textarea')) return;
+    if (target && target.closest('.icon-btn, .compose-header-tabs, button, a, input, textarea'))
+      return;
 
     const startX = e.clientX;
     const startY = e.clientY;
@@ -158,11 +159,14 @@ export function bindEdgeResize(root: HTMLElement): void {
       const onUp = () => {
         teardownResize();
         const r = root.getBoundingClientRect();
-        const patch: Partial<{ left: number; top: number; width: number; height: number }> = {
+        const patch: Partial<PanelGeometry> = {
           left: r.left,
           top: r.top,
         };
-        if (resizeW) patch.width = Math.round(r.width);
+        if (resizeW) {
+          patch.width = Math.round(r.width);
+          patch.widthUserLocked = true;
+        }
         if (resizeH) patch.height = Math.round(r.height);
         updateGeometry(patch);
       };

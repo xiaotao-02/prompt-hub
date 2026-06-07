@@ -21,8 +21,10 @@ import {
 } from './history';
 import {
   exportAllHistoryPublic,
+  getByDedupeKey,
   getHistoryRecord,
   historyCount,
+  naturalDedupeKey,
   putHistoryRecord,
   toPublicHistory,
   toStoredRecord,
@@ -60,6 +62,68 @@ function coerceBackupVersion(o: Record<string, unknown>): 1 | 2 | 3 {
   return 1;
 }
 
+function validateHistoryEntry(raw: unknown, index: number): HistoryItem {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+    throw new Error(`备份 history[${index}] 不是有效对象`);
+  }
+  const o = raw as Record<string, unknown>;
+  if (typeof o.id !== 'string' || !o.id.trim()) {
+    throw new Error(`备份 history[${index}] 缺少有效 id`);
+  }
+  if (typeof o.prompt !== 'string') {
+    throw new Error(`备份 history[${index}] 缺少 prompt 字段`);
+  }
+  if (typeof o.provider !== 'string' || typeof o.model !== 'string') {
+    throw new Error(`备份 history[${index}] 缺少 provider / model`);
+  }
+  if (o.versions !== undefined && !Array.isArray(o.versions)) {
+    throw new Error(`备份 history[${index}] 的 versions 必须是数组`);
+  }
+  return raw as HistoryItem;
+}
+
+function historySortTime(item: HistoryItem): number {
+  return item.updatedAt ?? item.createdAt ?? 0;
+}
+
+function mergeHistoryItems(newer: HistoryItem, older: HistoryItem): HistoryItem {
+  const seen = new Set(newer.versions.map((v) => v.id));
+  const mergedVersions = [...newer.versions];
+  for (const v of older.versions) {
+    if (!seen.has(v.id)) mergedVersions.push(v);
+  }
+  return migrateItem({
+    ...newer,
+    versions: normalizePromptVersions(mergedVersions),
+  });
+}
+
+/** 备份 restore 前按图片 URL 去重，避免 bulkReplaceHistory 触发 dedupe 唯一索引冲突。 */
+export function dedupeForRestore(list: HistoryItem[]): HistoryItem[] {
+  const byKey = new Map<string, HistoryItem[]>();
+  for (const item of list) {
+    const natKey = naturalDedupeKey(item);
+    const key = natKey || `__nid:${item.id}`;
+    const group = byKey.get(key);
+    if (group) group.push(item);
+    else byKey.set(key, [item]);
+  }
+  const out: HistoryItem[] = [];
+  for (const group of byKey.values()) {
+    if (group.length === 1) {
+      out.push(group[0]);
+      continue;
+    }
+    const sorted = [...group].sort((a, b) => historySortTime(b) - historySortTime(a));
+    let winner = sorted[0];
+    for (let i = 1; i < sorted.length; i++) {
+      winner = mergeHistoryItems(winner, sorted[i]);
+    }
+    out.push(winner);
+  }
+  return out;
+}
+
 /**
  * 校验并将任意解析后的 JSON 规范为 {@link BackupPayload}。
  * `version` 缺失或非法时按载荷字段推断（strategyPresets → v3，folders → v2，否则 v1）。
@@ -80,12 +144,15 @@ export function parseBackupPayload(raw: unknown): BackupPayload {
     typeof o.exportedAt === 'string' && o.exportedAt.trim().length > 0
       ? o.exportedAt
       : new Date().toISOString();
+  const history = (o.history as unknown[]).map((entry, index) =>
+    validateHistoryEntry(entry, index),
+  );
   return {
     version,
     exportedAt,
     ...(typeof o.appVersion === 'string' ? { appVersion: o.appVersion } : {}),
     settings: o.settings as AppSettings,
-    history: o.history as HistoryItem[],
+    history,
     ...(Array.isArray(o.folders) ? { folders: o.folders as LibraryFolder[] } : {}),
     ...(Array.isArray(o.strategyPresets)
       ? { strategyPresets: o.strategyPresets as UserStrategyPreset[] }
@@ -125,7 +192,10 @@ export async function restoreBackup(
   const data = parseBackupPayload(payload);
   let settingsRestored = false;
   if (data.settings) {
-    await saveSettings(data.settings);
+    const saveResult = await saveSettings(data.settings);
+    if (!saveResult.ok) {
+      throw new Error(saveResult.error);
+    }
     settingsRestored = true;
   }
 
@@ -146,36 +216,37 @@ export async function restoreBackup(
   if (Array.isArray(data.history)) {
     await ensureLibraryReady();
     if (mode === 'replace') {
-      const next = data.history.slice(0, HISTORY_LIMIT).map((item) => migrateItem(item));
+      const next = dedupeForRestore(
+        data.history.slice(0, HISTORY_LIMIT).map((item) => migrateItem(item)),
+      );
       await writeHistory(next);
       added = next.length;
     } else {
       for (const incoming of data.history) {
-        const item = migrateItem(incoming);
-        const row = await getHistoryRecord(item.id);
-        const exist = row ? toPublicHistory(row) : null;
-        if (!exist) {
-          await putHistoryRecord(toStoredRecord(item));
-          added++;
-        } else {
-          const newer =
-            (item.updatedAt || item.createdAt || 0) >= (exist.updatedAt || exist.createdAt || 0)
-              ? item
-              : exist;
-          const older = newer === item ? exist : item;
-          const seen = new Set(newer.versions.map((v) => v.id));
-          const mergedVersions = [...newer.versions];
-          for (const v of older.versions) {
-            if (!seen.has(v.id)) mergedVersions.push(v);
+        try {
+          const item = migrateItem(incoming);
+          const row = await getHistoryRecord(item.id);
+          const exist = row ? toPublicHistory(row) : null;
+          if (!exist) {
+            const natKey = naturalDedupeKey(item);
+            const dedupeRow = natKey ? await getByDedupeKey(natKey) : undefined;
+            if (dedupeRow) {
+              const existByDedupe = toPublicHistory(dedupeRow);
+              const newer =
+                historySortTime(item) >= historySortTime(existByDedupe) ? item : existByDedupe;
+              const older = newer === item ? existByDedupe : item;
+              await putHistoryRecord(toStoredRecord(mergeHistoryItems(newer, older)));
+            } else {
+              await putHistoryRecord(toStoredRecord(item));
+              added++;
+            }
+          } else {
+            const newer = historySortTime(item) >= historySortTime(exist) ? item : exist;
+            const older = newer === item ? exist : item;
+            await putHistoryRecord(toStoredRecord(mergeHistoryItems(newer, older)));
           }
-          await putHistoryRecord(
-            toStoredRecord(
-              migrateItem({
-                ...newer,
-                versions: normalizePromptVersions(mergedVersions),
-              }),
-            ),
-          );
+        } catch (err) {
+          console.warn('[PromptHub] restoreBackup merge item skipped', incoming, err);
         }
       }
       await trimOldestToMax(HISTORY_LIMIT);

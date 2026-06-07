@@ -30,6 +30,8 @@ export { syncVersions } from './versionsSync';
 export {
   applyVersionsListDensityUi,
   patchVersionList,
+  applyStoredActiveModel,
   applyStoredPromptStrategy,
+  applyStoredOutputStyle,
   applyStoredOneClickRefineRandomness,
 } from './versionListUi';

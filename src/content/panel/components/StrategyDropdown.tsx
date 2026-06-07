@@ -1,11 +1,20 @@
-import { useCallback, useState, type MouseEvent } from 'react';
+import { useCallback, useEffect, useState, type MouseEvent } from 'react';
 import { safeSendMessage, isExtensionContextValid } from '@/content/extensionBridge';
+import { getSettings } from '@/lib/storage/settings';
+import { getUserStrategyPresets, briefUserPresetFingerprint } from '@/lib/storage';
+import { USER_STRATEGY_PRESETS_KEY, SETTINGS_KEY } from '@/lib/storage/keys';
+import {
+  isBuiltinStrategyOptionActive,
+  isPresetOptionActive,
+  resolveStrategySelectTriggerLabel,
+} from '@/lib/strategySelectDisplay';
 import { STRATEGY_LABELS, type StrategyId } from '@/lib/strategies-meta';
-import type { RuntimeMessage } from '@/lib/types';
+import type { RuntimeMessage, UserStrategyPreset } from '@/lib/types';
 import { commitPanelEvent } from '../dispatchPanel';
-import { currentState } from '../state';
-import { resolveStrategyDisplayId, strategyDisplayLabel } from '../strategyDisplay';
+import { currentState, panelActions } from '../state';
+import { resolveStrategyDisplayId } from '../strategyDisplay';
 import { patchVersionList } from '../versionListUi';
+import { PanelSelectDropdown } from './PanelSelectDropdown';
 
 export type StrategyDropdownProps = {
   currentStrategy: StrategyId | undefined;
@@ -19,10 +28,61 @@ export function StrategyDropdown({
   onStrategyChange,
 }: StrategyDropdownProps) {
   const [open, setOpen] = useState(false);
+  const [presets, setPresets] = useState<UserStrategyPreset[]>([]);
+  const [panelSettings, setPanelSettings] = useState<Awaited<
+    ReturnType<typeof getSettings>
+  > | null>(null);
+
+  const refreshStrategyContext = useCallback(async () => {
+    const [nextPresets, nextSettings] = await Promise.all([
+      getUserStrategyPresets(),
+      getSettings(),
+    ]);
+    setPresets(nextPresets);
+    setPanelSettings(nextSettings);
+  }, []);
+
+  useEffect(() => {
+    void refreshStrategyContext();
+  }, [refreshStrategyContext]);
+
+  useEffect(() => {
+    const handler = (
+      changes: { [key: string]: chrome.storage.StorageChange },
+      area: chrome.storage.AreaName,
+    ) => {
+      if (area !== 'local') return;
+      if (!(USER_STRATEGY_PRESETS_KEY in changes)) return;
+      void refreshStrategyContext();
+    };
+    const syncHandler = (
+      changes: { [key: string]: chrome.storage.StorageChange },
+      area: chrome.storage.AreaName,
+    ) => {
+      if (area !== 'sync') return;
+      if (!(SETTINGS_KEY in changes)) return;
+      void refreshStrategyContext();
+    };
+    chrome.storage.onChanged.addListener(handler);
+    chrome.storage.onChanged.addListener(syncHandler);
+    return () => {
+      chrome.storage.onChanged.removeListener(handler);
+      chrome.storage.onChanged.removeListener(syncHandler);
+    };
+  }, [refreshStrategyContext]);
+
   const displayId = resolveStrategyDisplayId(currentStrategy);
   const entries = Object.entries(STRATEGY_LABELS) as [StrategyId, string][];
+  const settingsForDisplay =
+    panelSettings ?? ({ promptStrategy: displayId } as Awaited<ReturnType<typeof getSettings>>);
+  const triggerLabel = resolveStrategySelectTriggerLabel(
+    settingsForDisplay,
+    displayId,
+    presets,
+    (id) => STRATEGY_LABELS[id] ?? id,
+  );
 
-  const handleSelect = useCallback(
+  const handleSelectBuiltin = useCallback(
     (newStrategy: StrategyId) => {
       if (disabled || !newStrategy || newStrategy === currentStrategy) return;
       const st = currentState;
@@ -31,10 +91,11 @@ export function StrategyDropdown({
       if ((prevStatus !== 'success' && prevStatus !== 'compose') || !isExtensionContextValid()) {
         return;
       }
-      commitPanelEvent({ type: 'ui.strategy', strategy: newStrategy });
+      const next = commitPanelEvent({ type: 'ui.strategy', strategy: newStrategy });
       onStrategyChange?.(newStrategy);
-      if (prevStatus === 'success') {
-        patchVersionList();
+      if (next) {
+        if (prevStatus === 'success') patchVersionList();
+        else panelActions.renderPanel(next);
       }
       safeSendMessage(
         {
@@ -43,52 +104,83 @@ export function StrategyDropdown({
         } satisfies RuntimeMessage,
         () => void chrome.runtime.lastError,
       );
+      void refreshStrategyContext();
       setOpen(false);
     },
-    [currentStrategy, disabled, onStrategyChange],
+    [currentStrategy, disabled, onStrategyChange, refreshStrategyContext],
   );
 
-  const handleTriggerClick = (e: MouseEvent<HTMLButtonElement>) => {
+  const handleSelectPreset = useCallback(
+    (preset: UserStrategyPreset) => {
+      if (disabled || !isExtensionContextValid()) return;
+      const st = currentState;
+      if (!st) return;
+      const prevStatus = st.status;
+      if (prevStatus !== 'success' && prevStatus !== 'compose') return;
+      const next = commitPanelEvent({ type: 'ui.strategy', strategy: 'custom' });
+      onStrategyChange?.('custom');
+      if (next) {
+        if (prevStatus === 'success') patchVersionList();
+        else panelActions.renderPanel(next);
+      }
+      safeSendMessage(
+        {
+          type: 'APPLY_USER_STRATEGY_PRESET',
+          payload: { presetId: preset.id },
+        } satisfies RuntimeMessage,
+        () => void chrome.runtime.lastError,
+      );
+      void refreshStrategyContext();
+      setOpen(false);
+    },
+    [disabled, onStrategyChange, refreshStrategyContext],
+  );
+
+  const handleBuiltinClick = (e: MouseEvent<HTMLLIElement>, id: StrategyId) => {
     e.stopPropagation();
-    if (disabled) return;
-    setOpen((v) => !v);
+    handleSelectBuiltin(id);
   };
 
-  const handleItemClick = (e: MouseEvent<HTMLLIElement>, id: StrategyId) => {
+  const handlePresetClick = (e: MouseEvent<HTMLLIElement>, preset: UserStrategyPreset) => {
     e.stopPropagation();
-    handleSelect(id);
+    handleSelectPreset(preset);
   };
 
   return (
-    <div
-      className={`strategy-dropdown${open ? ' open' : ''}`}
-      data-role="strategy-dropdown"
-      title="切换策略后需点击重新生成生效"
+    <PanelSelectDropdown
+      dataRole="strategy-dropdown"
+      open={open}
+      onOpenChange={setOpen}
+      disabled={disabled}
+      title="切换后可直接点「让 AI 调整」生效（将重新识图反推）"
+      triggerLabel={triggerLabel}
     >
-      <button className="sd-trigger" type="button" disabled={disabled} onClick={handleTriggerClick}>
-        <span className="sd-label">{strategyDisplayLabel(currentStrategy)}</span>
-        <svg className="sd-arrow" width="10" height="6" viewBox="0 0 10 6" fill="none">
-          <path
-            d="M1 1l4 4 4-4"
-            stroke="currentColor"
-            strokeWidth="1.5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-        </svg>
-      </button>
-      <ul className="sd-menu">
-        {entries.map(([id, label]) => (
-          <li
-            key={id}
-            className={`sd-item${id === displayId ? ' active' : ''}`}
-            data-strategy={id}
-            onClick={(e) => handleItemClick(e, id)}
-          >
-            {label}
-          </li>
-        ))}
-      </ul>
-    </div>
+      {entries.map(([id, label]) => (
+        <li
+          key={id}
+          className={`sd-item${isBuiltinStrategyOptionActive(settingsForDisplay, id, presets) ? ' active' : ''}`}
+          data-strategy={id}
+          onClick={(e) => handleBuiltinClick(e, id)}
+        >
+          {label}
+        </li>
+      ))}
+      {presets.length > 0 && (
+        <li className="sd-item sd-item-muted sd-item-section" role="presentation">
+          我的预设
+        </li>
+      )}
+      {presets.map((preset) => (
+        <li
+          key={preset.id}
+          className={`sd-item${isPresetOptionActive(settingsForDisplay, preset, presets) ? ' active' : ''}`}
+          data-preset-id={preset.id}
+          title={briefUserPresetFingerprint(preset)}
+          onClick={(e) => handlePresetClick(e, preset)}
+        >
+          {preset.name}
+        </li>
+      ))}
+    </PanelSelectDropdown>
   );
 }

@@ -8,6 +8,7 @@ import {
   panelReferenceUrls,
   panelExtractJobs,
   MAX_PARALLEL_PANEL_EXTRACTS,
+  type PanelState,
 } from '../state';
 import { renderPanelFromState } from '../panelRenderBridge';
 import { flashCopied, fallbackCopy } from '../copyFeedback';
@@ -28,6 +29,41 @@ export const handleCopy: DataActionHandler = ({ el }) => {
     .catch(() => fallbackCopy(text, el));
 };
 
+/** success 态并行追加一次识图反推（侧栏 extract 流式行），使用当前面板 strategy。 */
+export function beginPanelReExtractFromSuccess(state: PanelState): boolean {
+  const versions = state.versions || [];
+  if (state.status !== 'success' || versions.length === 0) return false;
+  const urls = normalizeReferenceList(panelReferenceUrls(state));
+  if (!urls.length) return false;
+  if (panelExtractJobs(state).length >= MAX_PARALLEL_PANEL_EXTRACTS) return false;
+  if (!isExtensionContextValid()) return false;
+
+  const streamId = crypto.randomUUID();
+  const ej = [...panelExtractJobs(state), { streamRequestId: streamId, startedAt: Date.now() }];
+  const wasOpen = state.versionsOpen;
+  renderPanelFromState({
+    ...state,
+    extractJobs: ej,
+    selectedVersionId: extractStreamSentinelForJob(streamId),
+    versionsOpen: true,
+    prefetchStorageId: undefined,
+    refineError: undefined,
+  });
+  if (!wasOpen) expandPanelForSidebar();
+  safeSendMessage({
+    type: 'EXTRACT_PROMPT',
+    payload: {
+      imageUrl: urls[0]!,
+      imageUrls: urls,
+      pageUrl: location.href,
+      pageTitle: document.title,
+      requestId: streamId,
+      ...(state.strategy !== undefined ? { strategyOverride: state.strategy } : {}),
+    },
+  });
+  return true;
+}
+
 export const handleRetry: DataActionHandler = () => {
   const state = currentState;
   if (!state || !isExtensionContextValid()) return;
@@ -41,27 +77,7 @@ export const handleRetry: DataActionHandler = () => {
   const streamId = crypto.randomUUID();
 
   if (hasHistory && state.status === 'success') {
-    const ej = [...panelExtractJobs(state), { streamRequestId: streamId, startedAt: Date.now() }];
-    const wasOpen = state.versionsOpen;
-    renderPanelFromState({
-      ...state,
-      extractJobs: ej,
-      selectedVersionId: extractStreamSentinelForJob(streamId),
-      versionsOpen: true,
-      prefetchStorageId: undefined,
-    });
-    if (!wasOpen) expandPanelForSidebar();
-    safeSendMessage({
-      type: 'EXTRACT_PROMPT',
-      payload: {
-        imageUrl: urls[0]!,
-        imageUrls: urls,
-        pageUrl: location.href,
-        pageTitle: document.title,
-        sessionRequestId: streamId,
-        ...(state.strategy !== undefined ? { strategyOverride: state.strategy } : {}),
-      },
-    });
+    beginPanelReExtractFromSuccess(state);
     return;
   }
 
@@ -81,7 +97,7 @@ export const handleRetry: DataActionHandler = () => {
         imageUrls: urls,
         pageUrl: location.href,
         pageTitle: document.title,
-        sessionRequestId: streamId,
+        requestId: streamId,
         ...(state.strategy !== undefined ? { strategyOverride: state.strategy } : {}),
       },
     });
@@ -113,7 +129,7 @@ export const handleRetry: DataActionHandler = () => {
       imageUrls: urls,
       pageUrl: location.href,
       pageTitle: document.title,
-      sessionRequestId: streamId,
+      requestId: streamId,
       ...(state.strategy !== undefined ? { strategyOverride: state.strategy } : {}),
     },
   });

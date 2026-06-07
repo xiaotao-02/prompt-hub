@@ -1,47 +1,15 @@
 /** Panel CSS section: refine */
 export const refineCss = `
-.refine-slot {
-  display: grid;
-  grid-template-rows: 0fr;
-  transition: grid-template-rows var(--pe-collapse-duration) var(--pe-collapse-ease);
-}
-.refine-slot.is-open { grid-template-rows: 1fr; }
-.refine-slot-inner {
-  min-height: 0;
-  overflow: hidden;
-}
-
 .refine-box {
-  border: 1px solid color-mix(in srgb, var(--pe-accent) 28%, transparent);
-  background: var(--pe-accent-soft);
-  border-radius: var(--pe-radius-lg);
-  padding: 10px;
   display: flex; flex-direction: column; gap: 8px;
   position: relative;
   transition: opacity .15s;
 }
 .refine-box.loading { opacity: 0.85; }
-@media (prefers-color-scheme: dark) {
-  .refine-box {
-    border-color: rgba(139,92,246,0.35);
-    background: linear-gradient(180deg, rgba(139,92,246,0.10), rgba(99,102,241,0.06));
-  }
-}
-.refine-head {
-  display: flex; align-items: center; justify-content: space-between;
-  font-size: 12px; font-weight: 600;
-  color: var(--pe-accent);
-}
-.refine-head > span:first-child {
-  display: inline-flex; align-items: center; gap: 6px;
-}
-@media (prefers-color-scheme: dark) {
-  .refine-head { color: #c4b5fd; }
-}
 .refine-input {
   width: 100%; min-height: 80px; max-height: 220px; resize: vertical;
   padding: 8px 10px; border-radius: var(--pe-radius);
-  border: 1px solid color-mix(in srgb, var(--pe-accent) 28%, transparent);
+  border: 1px solid var(--pe-border-strong);
   background: var(--pe-surface);
   color: inherit; font-size: 12px; line-height: 1.5;
   font-family: inherit;
@@ -57,42 +25,32 @@ export const refineCss = `
 }
 @media (prefers-color-scheme: dark) {
   .refine-input {
-    background: rgba(0,0,0,0.25);
-    border-color: rgba(139,92,246,0.35);
+    background: color-mix(in srgb, var(--pe-surface) 70%, transparent);
   }
 }
 .refine-error {
   padding: 6px 10px; border-radius: 6px;
-  background: rgba(239,68,68,0.12); color: #b91c1c;
+  background: color-mix(in srgb, var(--pe-danger) 12%, transparent);
+  color: var(--pe-danger);
   font-size: 11px; line-height: 1.45;
-}
-@media (prefers-color-scheme: dark) {
-  .refine-error { color: #fca5a5; background: rgba(239,68,68,0.18); }
 }
 .refine-suggest {
   display: flex; flex-wrap: wrap; gap: 4px;
 }
 .chip {
-  border: 1px solid color-mix(in srgb, var(--pe-accent) 28%, transparent);
+  border: 1px solid var(--pe-border-strong);
   background: var(--pe-surface);
-  color: var(--pe-accent);
+  color: var(--pe-text-muted);
   font-size: 11px; padding: 2px 8px; border-radius: 999px;
   cursor: pointer; font-family: inherit;
-  transition: background .12s, opacity .12s;
+  transition: background .12s, opacity .12s, color .12s, border-color .12s;
 }
-.chip:hover { background: rgba(99,102,241,0.10); }
+.chip:hover {
+  color: var(--pe-accent);
+  border-color: color-mix(in srgb, var(--pe-accent) 28%, var(--pe-border-strong));
+  background: var(--pe-accent-soft);
+}
 .chip:disabled { opacity: 0.5; cursor: not-allowed; }
-@media (prefers-color-scheme: dark) {
-  .chip {
-    background: rgba(139,92,246,0.10);
-    border-color: rgba(139,92,246,0.35);
-    color: #c4b5fd;
-  }
-  .chip:hover { background: rgba(139,92,246,0.20); }
-}
-.refine-actions {
-  display: flex; justify-content: flex-end; gap: 6px;
-}
 /* refine 流式进度块。和顶部 loading 状态共用 .bar.progress / .hint-row 的样式，
    这里只负责给一个内边距和淡入动画。 */
 .refine-progress {
@@ -113,36 +71,61 @@ export const refineCss = `
   border-radius: 50%;
   animation: spin .9s linear infinite;
 }
+.btn.secondary .spinner {
+  border-color: color-mix(in srgb, var(--pe-text-muted) 40%, transparent);
+  border-top-color: var(--pe-text-muted);
+}
 @keyframes spin { to { transform: rotate(360deg); } }
 
 .link-btn {
-  background: transparent; border: none; cursor: pointer;
-  display: inline-flex; align-items: center; gap: 4px;
-  padding: 4px 8px; border-radius: 6px;
-  color: inherit; opacity: 0.7;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  color: var(--pe-text-muted);
   font-size: 11px;
   line-height: 1;
   font-family: inherit;
+  transition: background .12s, color .12s, opacity .12s;
 }
-.link-btn:hover { opacity: 1; background: rgba(0,0,0,0.05); }
-.link-btn.active { opacity: 1; background: rgba(99,102,241,0.12); color: #4f46e5; }
-.link-btn.primary { color: var(--pe-accent); opacity: 0.9; }
-.link-btn.primary:hover { background: rgba(99,102,241,0.12); opacity: 1; }
-/* 危险动作（删除版本）：常态保持中性灰，hover 才变玫红，避免在
-   sidebar 一排按钮里抢眼。margin-left:auto 把它推到右端，与
-   "复制 / 恢复" 留出视觉间距。 */
-.link-btn.danger { color: inherit; opacity: 0.55; margin-left: auto; }
-.link-btn.danger:hover {
-  opacity: 1; background: rgba(244,63,94,0.10); color: #e11d48;
+.link-btn:hover:not([disabled]) {
+  color: var(--pe-text);
+  background: var(--pe-bg-muted);
 }
-.link-btn[disabled] { cursor: not-allowed; opacity: 0.35; }
-.link-btn[disabled]:hover { background: transparent; }
+.link-btn.active {
+  color: var(--pe-accent);
+  background: var(--pe-accent-soft);
+}
+.link-btn.primary {
+  color: var(--pe-accent);
+}
+.link-btn.primary:hover:not([disabled]) {
+  background: var(--pe-accent-soft);
+}
+/* 危险动作（删除版本）：常态保持中性灰，hover 才变 danger 色 */
+.link-btn.danger {
+  color: var(--pe-text-muted);
+  margin-left: auto;
+}
+.link-btn.danger:hover:not([disabled]) {
+  color: var(--pe-danger);
+  background: color-mix(in srgb, var(--pe-danger) 10%, transparent);
+}
+.link-btn[disabled] {
+  cursor: not-allowed;
+  opacity: 0.35;
+}
+.link-btn[disabled]:hover {
+  background: transparent;
+}
 @media (prefers-color-scheme: dark) {
-  .link-btn:hover { background: rgba(255,255,255,0.06); }
-  .link-btn.active { background: rgba(139,92,246,0.18); color: #c4b5fd; }
-  .link-btn.primary { color: #a5b4fc; }
-  .link-btn.primary:hover { background: rgba(139,92,246,0.18); }
-  .link-btn.danger:hover { background: rgba(244,63,94,0.18); color: #fda4af; }
+  .link-btn:hover:not([disabled]) {
+    background: rgba(255,255,255,0.06);
+  }
 }
 
 /* panel-row：success 状态下，header 下方的横向容器。

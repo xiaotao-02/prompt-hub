@@ -99,9 +99,11 @@ export function DecisionModal({
             </p>
           </div>
           <button
+            type="button"
             onClick={onClose}
             className="p-1 rounded-lg text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800"
-            title="关闭（等同「保持备份不动」）"
+            aria-label="关闭对话框"
+            title="关闭"
           >
             <X className="w-4 h-4" />
           </button>

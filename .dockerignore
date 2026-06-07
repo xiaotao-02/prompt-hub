@@ -1,0 +1,18 @@
+# Monorepo root build context (api.Dockerfile) — exclude unrelated packages
+node_modules
+dist
+website
+.git
+.gitignore
+*.db
+*.db-shm
+*.db-wal
+services/api/node_modules
+services/api/dist
+services/api/data
+services/api/.env
+services/api/.env.*
+!services/api/.env.example
+services/api/coverage
+services/api/*.test.ts
+services/api/vitest.config.*

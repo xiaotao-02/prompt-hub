@@ -18,11 +18,7 @@ export default defineConfig({
         test: {
           name: 'node',
           environment: 'node',
-          include: [
-            'src/**/*.test.ts',
-            'scripts/byok/**/*.test.ts',
-            'website/src/**/*.test.ts',
-          ],
+          include: ['src/**/*.test.ts', 'scripts/byok/**/*.test.ts'],
         },
       },
       {
