@@ -1,6 +1,6 @@
 {
   "name": "prompt-hub",
-  "version": "0.1.145",
+  "version": "0.1.146",
   "description": "Prompt Hub · 右键任意图片，调用视觉大模型提取 AI 绘画提示词的 Chrome 扩展",
   "private": false,
   "type": "module",
