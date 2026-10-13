@@ -1,176 +1,164 @@
-<p align="center">
-  <img src="docs/images/readme/logo-128.png" width="96" alt="Prompt Hub" />
-  <h1>Prompt Hub</h1>
-  <p>Browse and create: right-click to collect refs, bring your own vision API, reverse-engineer SD / MJ / Flux prompts in seconds.</p>
-</p>
+# Prompt Hub
 
-<p align="center">
-  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="MIT License" /></a>
-  <a href="https://github.com/xiaotao-02/prompt-hub/releases"><img src="https://img.shields.io/badge/Chrome-Extension-7c3aed?logo=googlechrome&logoColor=white" alt="Chrome Extension" /></a>
-  <a href="https://github.com/xiaotao-02/prompt-hub/actions/workflows/ci.yml"><img src="https://github.com/xiaotao-02/prompt-hub/actions/workflows/ci.yml/badge.svg" alt="CI" /></a>
-  <a href="README.md">简体中文</a> · <strong>English</strong>
-</p>
+Collect image and video references as you browse, then use vision models to generate, refine, and organize AI art prompts.
 
-![Core flow: add references → compose → copy](docs/images/readme/hero-marquee.png)
+[简体中文](README.md) · **English** · [Download](https://github.com/xiaotao-02/prompt-hub/releases) · [Report an issue](https://github.com/xiaotao-02/prompt-hub/issues)
 
-The slow part of AI art is rarely the final render—it is turning a reference into a reusable prompt in the right shape for your toolchain. **Prompt Hub** works where you already browse: right-click to add images to the floating reference panel, or skip collection and extract directly. Results land in an on-page panel in seconds, ready for Stable Diffusion, Midjourney, Flux, and similar tools.
+Prompt Hub is an open-source Chrome extension built on Manifest V3. Right-click to add references, generate prompts in a floating panel on the current page, and copy the results into your creative tools. Save prompts to your library to keep editing, refine them with AI, or restore earlier versions.
 
-Configure your own vision-model API key in Options; the extension **does not send images or secrets to a developer backend** ([Privacy Policy](PRIVACY.md)).
-
----
+This repository provides the **BYOK (Bring Your Own Key) build**. It uses the model services you configure and does not include a hosted model gateway, website login, or top-up and billing features.
 
 ## Quick start
 
-1. Download the zip from [GitHub Releases](https://github.com/xiaotao-02/prompt-hub/releases), enable Developer mode at `chrome://extensions`, then **Load unpacked**
-2. Click the toolbar icon → **Options**, enter your API key and pick a **vision-capable** model under Model & Connection
-3. On any page **right-click an image** → **Add to reference** (or **Extract prompt directly**) → **Generate prompt** in the panel → **Copy**
+### 1. Install the extension
 
-![Three-step workflow](docs/images/readme/workflow-three-step.png)
+1. Visit [GitHub Releases](https://github.com/xiaotao-02/prompt-hub/releases) and download the `prompt-hub-v*.zip` release asset rather than a source-code archive.
+2. Extract it to a folder you intend to keep.
+3. Open `chrome://extensions` and enable **Developer mode**.
+4. Click **Load unpacked** and select the extracted folder containing `manifest.json`.
+5. Pin Prompt Hub to the toolbar for easy access to settings and history.
 
----
+### 2. Configure a model
+
+Open the extension settings, choose a provider, enter your **API key**, and confirm the **Base URL**. Select an **extraction model** that accepts image input. You can configure a separate model for text refinement.
+
+Built-in provider configurations include OpenAI, Anthropic Claude, Google Gemini, Zhipu GLM, Qwen, SiliconFlow, Moonshot Kimi, Doubao, MiniMax, and OpenRouter. Custom OpenAI-compatible endpoints are also supported. Model availability and API charges depend on the service you use.
+
+### 3. Generate your first prompt
+
+1. Open a webpage with a reference image, right-click it, and choose **Add reference** (`添加参考`).
+2. Click **Generate prompt** (`生成提示词`) in the floating panel.
+3. Copy the result, edit it, or refine it through conversation.
+
+For a single image, choose **Extract prompt** (`提取提示词`) from the context menu to start immediately. Refresh existing tabs after installing or updating the extension.
 
 ## Features
 
-### Right-click & reference panel
+| Feature                   | How it works                                                                                                         |
+| ------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| Reference collection      | Add references from images, videos, Canvas, inline SVG, or CSS backgrounds, or select local images                   |
+| Multiple references       | Combine up to 8 reference images to describe subjects, composition, materials, and style                             |
+| Region capture            | Select a rectangular area of a webpage when its context menu or media is difficult to access                         |
+| Video references          | Choose **Add video reference** (`添加视频参考`), select a time range, and sample frames for storyboard-style prompts |
+| Focused extraction        | Choose **Generate prompt**, **Extract material** (`提取材质`), or **Extract style** (`提取风格`)                     |
+| Conversational refinement | Adjust results with requests such as "more cinematic," "translate to English," or "emphasize the material"           |
+| History and versions      | Edit prompts, save revisions, and restore earlier versions                                                           |
+| Prompt library            | Organize prompts into folders and continue editing or refining them with AI                                          |
+| Data backup               | Use a local data folder or import and export JSON backups                                                            |
 
-- Works on `<img>`, `<video>`, `<canvas>`, inline SVG, CSS background images
-- **Add to reference** (up to 8 images, then compose) or **Extract prompt directly**
-- **Ctrl+Shift+E** (Mac: Command+Shift+E) region snip; also available from the toolbar popup
+### Output formats and strategies
 
-<p align="center">
-  <img src="docs/images/readme/context-menu.png" alt="Context menu: add reference or extract prompt" width="720" />
-</p>
+| Output format               | Description                                        |
+| --------------------------- | -------------------------------------------------- |
+| Natural language (Chinese)  | Paragraph-style descriptions in Chinese            |
+| Natural language (English)  | Paragraph-style descriptions in English            |
+| Natural language (Japanese) | Paragraph-style descriptions in Japanese           |
+| JSON (English)              | Structured English output for structured workflows |
 
-![Reference panel: multi-image understanding](docs/images/readme/reference-panel.png)
+The default strategy is **v0.3.6 General High-Fidelity**. Classic, v0.2.2, v0.3.0, v0.3.5, Native Recognition, and Custom Combination are also available to adjust extraction instructions and generation behavior.
 
-- **Generate prompt** for full extraction; **Extract material / Extract style** for narrower dimensions
-- Videos: sample frames across a time range for storyboard-style prompts
+### Capture shortcuts
 
-### GIF, video & region capture
+| System          | Shortcut          |
+| --------------- | ----------------- |
+| Windows / Linux | `Ctrl+Shift+E`    |
+| macOS           | `Command+Shift+E` |
 
-- GIF / APNG / animated WebP → flattened to a static first frame
-- Twitter / Reddit / Discord faux-GIF `<video>` → current frame via canvas
-- When sites hijack the menu, use region snip or popup **capture region**
+You can also start region capture from the toolbar popup. If the shortcut does not respond, check or reassign it at `chrome://extensions/shortcuts`.
 
-### Output styles & strategies
+## Data and privacy
 
-| Style           | Description           |
-| --------------- | --------------------- |
-| Natural CN / EN | Paragraph prompts     |
-| SD Tag          | Stable Diffusion tags |
-| Midjourney      | MJ-style phrasing     |
-
-Strategy tiers: Classic, v0.2.2, v0.3.0, v0.3.5, **v0.3.6 General High-Fidelity** (default), Native, Custom combo.
-
-### History, chat refine & prompt library
-
-![History and versions](docs/images/readme/popup-history.png)
-
-- Edit in panel and popup; **auto-saved versions**, restore any revision
-- **Conversational refine**: “more cinematic / translate to English / add 8k masterpiece”
-- Options → **Prompt Library**: large-image editing, folders, AI refine
-
-![Prompt library](docs/images/readme/prompt-library.png)
-
-### 12+ vision providers
-
-![Multi-provider picker](docs/images/readme/providers-grid.png)
-
-OpenAI, Anthropic, Google Gemini, Zhipu GLM, Qwen, SiliconFlow (incl. DeepSeek-VL2), Moonshot, Doubao, Baidu Qianfan, OpenRouter, custom OpenAI-compatible endpoints—keys stored **only in your browser**.
-
-### Options & privacy
-
-![Paste key and go](docs/images/readme/settings-quickstart.png)
-
-- Keys sync via `chrome.storage.sync` across your Chrome devices
-- Updates via **GitHub Releases**; current version shown in Options
-- **No telemetry**
-
-> **DeepSeek’s official API** does not accept images. For DeepSeek vision, use **SiliconFlow** in Options with model `deepseek-ai/deepseek-vl2`.
-
----
-
-## Open-source BYOK build
-
-This repository is a **Bring Your Own Key (BYOK)** open-source build:
-
-| Included                                                   | Not included     |
-| ---------------------------------------------------------- | ---------------- |
-| Full extension logic, your own keys, direct provider calls | Platform proxy   |
-| Local history & prompt library                             | Website login    |
-| GitHub Releases distribution & in-extension update checks  | Top-up / billing |
-
-Maintainers export this public repo from a private monorepo. **Do not change extension logic here directly**—edit the private repo and re-export. See [Maintainer guide (ZH)](docs/MAINTAINER.zh.md).
-
----
-
-## Install & develop
-
-Requires **Node 18+**.
-
-```bash
-npm install
-npm run dev          # HMR; UI preview http://localhost:5173/__dev__/ui-preview
-npm run build        # → dist/
-npm run zip          # extension zip
-```
-
-**Load in Chrome (recommended)**
-
-```bash
-npm run install:chrome    # or npm run install:edge
-```
-
-Manual: `npm run build` → `chrome://extensions` → Developer mode → Load unpacked `dist/`.
-
-<details>
-<summary>install:chrome flags</summary>
-
-| Flag                    | Description                               |
-| ----------------------- | ----------------------------------------- |
-| `--build`               | Force rebuild before launch               |
-| `--browser=edge`        | Use Edge                                  |
-| `--use-default-profile` | System Chrome profile (quit Chrome first) |
-
-Default uses isolated profile `.chrome-dev-profile/` to avoid conflicting with a running Chrome instance.
-
-</details>
-
-**Stack**: Manifest V3 · Vite 6 · React 18 · TypeScript · Tailwind CSS v4 · Shadow DOM injection
-
----
+- **Direct model requests**: Images, video frames, screenshots, and related prompts are sent to the model endpoint you configure, without passing through a developer-operated model gateway.
+- **Keys and preferences**: API keys and preferences are saved using `chrome.storage.sync` and may sync across devices signed into the same browser account, depending on your browser settings. Keys authenticate model requests to the configured endpoint.
+- **Local prompt library**: History and versions are stored in the extension's IndexedDB. Supporting data, such as folders, is stored locally in the browser.
+- **Backup and recovery**: Configure a local data folder or export JSON in settings. Back up your data before uninstalling, reinstalling, or migrating.
+- **No telemetry or analytics tracking**. See the [Privacy Policy](PRIVACY.md) for details.
 
 ## FAQ
 
-**Q: What’s in the context menu?**  
-A: **Add to reference** (collect first) and **Extract prompt directly**. Use “Add to reference” when composing multiple images.
+### What is the difference between Add reference and Extract prompt?
 
-**Q: “Failed to download image” on some sites?**  
-A: Hotlink / Referer protection. Open the image in a new tab and try again.
+**Add reference** collects material first, so you can combine multiple images or choose a more focused extraction mode. **Extract prompt** immediately starts extraction from the current image or video frame.
 
-**Q: Twitter / X GIFs don’t work?**  
-A: They are `<video>` elements—right-click **on the video**. Use **Ctrl+Shift+E** if the site hijacks the menu.
+### Why can't my configured model recognize images?
 
-**Q: Can’t capture video frames?**  
-A: Cross-origin videos without `crossorigin="anonymous"` taint the canvas. Pause on the desired frame, or use region snip.
+Check that the selected model accepts image input rather than text only. Verify the API key, Base URL, model ID, and available quota. A provider appearing in the list does not mean that all of its models support vision.
 
-**Q: “Enhanced Safe Browsing doesn’t trust this extension”?**  
-A: Common for newer developers when [Enhanced protection](https://support.google.com/chrome/answer/9890866) is on—it [does not mean the extension is malicious](https://support.google.com/chrome_webstore/answer/2664769). You can still **Continue to install**.
+### What if an image fails to download or a site blocks the context menu?
 
----
+Try opening the image in a new tab, or use region capture. Hotlink protection, login requirements, and site scripts can affect access to media.
 
-If Prompt Hub saves you time writing prompts, a GitHub Star means a lot for this independently maintained open-source extension.
+### What if video or animated-image extraction fails?
 
----
+Some sites display "GIFs" as videos; right-click the video to add a reference. Cross-origin restrictions can prevent frame capture. If that happens, pause on the desired frame and use region capture. To analyze a video segment, choose **Add video reference**.
 
-## More docs
+### How do I update the extension?
 
-- [Privacy Policy](PRIVACY.md)
-- [Extension UI overview (ZH)](docs/plugin-pages-overview.zh.md)
-- [Maintainer guide (ZH)](docs/MAINTAINER.zh.md)
+Check for updates in settings and download the new version from [GitHub Releases](https://github.com/xiaotao-02/prompt-hub/releases). To update manually, back up your data, extract the new files over the original installation folder, click the extension's reload button at `chrome://extensions`, and refresh any webpages where you use it.
 
----
+## Local development
+
+Use **Node.js 22**, matching the repository's CI environment, and npm.
+
+```bash
+git clone https://github.com/xiaotao-02/prompt-hub.git
+cd prompt-hub
+npm ci
+npm run dev
+```
+
+The development server opens `http://localhost:5173/__dev__/ui-preview` by default. It provides previews of the popup, settings, and floating panel using mock data. Load the extension in a browser to verify context menus, screen capture, and actual model requests.
+
+### Build and load
+
+```bash
+npm run build           # Build to dist/
+npm run install:chrome  # Launch Chrome with an isolated browser profile
+npm run install:edge    # Use Edge
+npm run zip             # Build and package to dist-zip/
+```
+
+To load manually, enable **Developer mode** at `chrome://extensions`, choose **Load unpacked**, and select `dist/`.
+
+The install scripts use `.chrome-dev-profile/` by default. Run `npm run install:chrome -- --build` to rebuild before launch. To use your default browser profile, quit the browser first and run `npm run install:chrome -- --use-default-profile`.
+
+### Quality checks
+
+```bash
+npm run lint
+npm run test
+npm run build
+npm run format:check
+```
+
+**Stack**: Manifest V3, Vite 6, React 19, TypeScript, Tailwind CSS v4, and Shadow DOM.
+
+### Directory structure
+
+```text
+src/
+  background/    Background services, model requests, and message routing
+  content/       Page injection, region capture, and floating panel
+  popup/         Toolbar popup
+  options/       Settings, prompt library, and data management
+  lib/           Model adapters, strategies, storage, and shared types
+  components/    Shared UI components
+  dev/preview/   Development previews and mock data
+scripts/         Build, packaging, and maintenance scripts
+docs/            Architecture and usage documentation
+```
+
+This public repository is exported from a private monorepo. Maintainers should update extension logic in the source repository and re-export it. See the [Maintainer guide (Chinese)](docs/MAINTAINER.zh.md) for the workflow. Submit bug reports and feature requests through [GitHub Issues](https://github.com/xiaotao-02/prompt-hub/issues).
+
+## More documentation
+
+- [Extension UI overview (Chinese)](docs/plugin-pages-overview.zh.md): Popup, settings, panel, and development preview entry points.
+- [Architecture map](docs/architecture-map.generated.md): Modules and dependencies.
+- [UI component conventions (Chinese)](docs/ui-component-system.zh.md): Shared components and styling rules.
+- [Provider streaming (Chinese)](docs/provider-streaming.zh.md): Model responses and compatibility handling.
+- [Maintainer guide (Chinese)](docs/MAINTAINER.zh.md): Source synchronization and releases.
+- [Privacy Policy](PRIVACY.md) · [Security](SECURITY.md).
 
 ## License
 
-This repository is licensed under the [MIT License](LICENSE). End users should install from [GitHub Releases](https://github.com/xiaotao-02/prompt-hub/releases).
+This project is licensed under the [MIT License](LICENSE).
